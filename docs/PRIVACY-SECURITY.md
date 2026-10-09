@@ -25,3 +25,7 @@ own name and addresses. Do not expose port 8080 to the internet; for remote acce
 Tailscale IP address: the page only answers to the Pi's own names and addresses).
 
 **Report a problem:** open a GitHub issue, or for anything sensitive use GitHub's private vulnerability reporting.
+
+## Help run KindleHub
+Off by default. When switched on, the Pi connects out to kindlehub.pro and plays chess moves, nothing else, as its
+own user with no access to Bob's files or key. Details: [HELP-RUN-KINDLEHUB.md](HELP-RUN-KINDLEHUB.md).

@@ -98,6 +98,8 @@ def _upgrade():
 def _restart():
     for s in SERVICES:
         subprocess.run(['systemctl', 'restart', s], capture_output=True, timeout=60)
+    # Only if the owner switched it on: try-restart never starts a stopped service.
+    subprocess.run(['systemctl', 'try-restart', 'bob-assistant-helper'], capture_output=True, timeout=60)
 
 
 def _healthy(wait=40):

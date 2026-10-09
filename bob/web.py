@@ -13,7 +13,7 @@ import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import audio, config, skills, tools, updater, wake
+from . import audio, config, helper, skills, tools, updater, wake
 
 SESSIONS = {}
 SESSION_HOURS = 24 * 30
@@ -78,6 +78,42 @@ def _num(v, lo, hi, default):
         return int(max(lo, min(hi, x)))
     except (TypeError, ValueError):
         return default
+
+
+def service_enabled(name):
+    r = subprocess.run(['systemctl', 'is-enabled', name], capture_output=True, text=True)
+    return r.stdout.strip() == 'enabled'
+
+
+def helper_card():
+    """The "Help run KindleHub" switch (bob/helper.py). Off unless the owner turns it on."""
+    on = service_enabled('bob-assistant-helper')
+    st = helper.read_status() if on else {}
+    what = ('<p class="sub">Lend this Pi\'s spare time to KindleHub (free games for e-readers): it plays chess moves '
+            'for KindleHub\'s computer opponent, and nothing else. One move at a time, at most half of one CPU core, '
+            'lowest priority, so Bob always comes first. It connects out and opens no ports, and runs as its own user '
+            'with no access to Bob\'s key or your files.</p>'
+            '<p class="sub">Perks: link this Pi to your KindleHub account. While it has helped 10 hours in the last '
+            'week, your account counts as Plus: Plus features, and your bug reports go to the top of the list.</p>')
+    if not on:
+        return ('<form method="post" action="/helper" class="card"><h2>Help run KindleHub</h2>%s'
+                '<div class="row"><span>Status</span><span class="pill">off</span></div>'
+                '<input type="hidden" name="on" value="1"><p><button class="plain">Switch on</button></p></form>') % what
+    if st.get('connected'):
+        state = '<span class="pill ok">helping</span>'
+    elif st.get('problem'):
+        state = '<span class="pill warn">%s</span>' % esc(st['problem'])
+    else:
+        state = '<span class="pill warn">connecting</span>'
+    link = ''
+    if st.get('link_code') and not st.get('linked'):
+        link = ('<div class="row"><span>Link code</span><b>%s</b></div><p class="sub">For the perks: in KindleHub open '
+                'Settings, then Helper Pi, and enter this code.</p>') % esc(st['link_code'])
+    elif st.get('linked'):
+        link = '<div class="row"><span>KindleHub account</span><span class="pill ok">linked</span></div>'
+    return ('<form method="post" action="/helper" class="card"><h2>Help run KindleHub</h2>%s'
+            '<div class="row"><span>Status</span>%s</div>%s'
+            '<input type="hidden" name="on" value="0"><p><button class="plain">Switch off</button></p></form>') % (what, state, link)
 
 
 def service_active(name):
@@ -253,6 +289,11 @@ class Handler(BaseHTTPRequestHandler):
                 config.save_secrets(sec)
             subprocess.run(['sudo', '-n', '/usr/bin/systemctl', 'restart', 'bob-assistant'], capture_output=True)
             return self._redirect('/?saved=1')
+        if path == '/helper':                          # "Help run KindleHub": off by default, on only when asked
+            verb = 'enable' if f.get('on') == '1' else 'disable'
+            subprocess.run(['sudo', '-n', '/usr/bin/systemctl', verb, '--now', 'bob-assistant-helper.service'],
+                           capture_output=True, timeout=60)
+            return self._redirect('/')
         if path == '/delete-skill':
             skills.delete(f.get('name', ''))
             return self._redirect('/')
@@ -323,6 +364,7 @@ class Handler(BaseHTTPRequestHandler):
             '<label><input type="checkbox" name="auto_update" style="width:auto" %s> Install updates automatically</label>'
             '<p><button>Save</button></p></form>'
             '<div class="card"><h2>Skills Bob has made</h2>%s</div>'
+            '%s'
             '<div class="card"><h2>Updates</h2><form method="post" action="/update" style="display:inline"><button class="plain">Check now</button></form> '
             '<a class="btn plain" href="/log">Update log</a></div>'
             '<form method="post" action="/password" class="card"><h2>Change this page\'s password</h2><label>Current password</label><input type="password" name="current">'
@@ -335,7 +377,7 @@ class Handler(BaseHTTPRequestHandler):
                 esc(cfg['name']), esc(cfg['wake_phrase']), esc(cfg['wake_sensitivity']), esc(cfg['wake_sensitivity']), voice_opts,
                 esc(cfg['personality']), esc(cfg['town']), esc(cfg['volume']), esc(cfg['idle_seconds']), esc(cfg['language']),
                 esc(cfg['mic_device']), esc(cfg['speaker_device']), 'checked' if cfg.get('auto_update') else '',
-                skills_html))
+                skills_html, helper_card()))
 
 
 def main():

@@ -92,7 +92,9 @@ validate = validate_card            # older name, kept for scripts
 
 
 def firstboot_json(d):
-    return json.dumps({k: d.get(k, '') for k in ('gemini_api_key', 'web_password', 'name', 'wake_phrase', 'town', 'voice')}, indent=2)
+    out = {k: d.get(k, '') for k in ('gemini_api_key', 'web_password', 'name', 'wake_phrase', 'town', 'voice')}
+    out['kindlehub_helper'] = d.get('kindlehub_helper') is True        # "Help run KindleHub": off unless ticked
+    return json.dumps(out, indent=2)
 
 
 def firstboot_script(country='GB'):
@@ -417,6 +419,13 @@ def gui():
     field(p2, 'Wake phrase', 'wake_phrase', 'hey bob', hint='Common English words only (the offline recogniser must know them).')
     field(p2, 'Voice', 'voice', 'Charon', values=VOICES)
     field(p2, 'Your town (for the weather)', 'town', '')
+    helper_on = tk.BooleanVar(value=False)                  # off by default: only the owner turns it on
+    ttk.Checkbutton(p2, text='Help run KindleHub (optional)', variable=helper_on).pack(anchor='w', pady=(12, 0))
+    ttk.Label(p2, text='Lends the Pi\'s spare time to KindleHub (free games for e-readers): it plays chess moves for '
+                       'its computer opponent and nothing else, using at most half of one core at lowest priority. '
+                       'Perks: link it to your KindleHub account for Plus features and your bug reports first. '
+                       'Switch it off any time on Bob\'s settings page.', foreground='#777', font=('Segoe UI', 8),
+              wraplength=600).pack(anchor='w')
 
     p3 = ttk.Frame(nb, padding=12)
     nb.add(p3, text='3. Set up')
@@ -447,7 +456,9 @@ def gui():
 
     def data():
         keep = ('password', 'wifi_password', 'web_password', 'wifi_ssid')     # never trim these
-        return {k: (var.get() if k in keep else var.get().strip()) for k, var in v.items()}
+        d = {k: (var.get() if k in keep else var.get().strip()) for k, var in v.items()}
+        d['kindlehub_helper'] = bool(helper_on.get())
+        return d
 
     def check(validator):
         d = data()

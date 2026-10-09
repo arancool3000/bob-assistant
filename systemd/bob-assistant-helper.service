@@ -1,0 +1,39 @@
+[Unit]
+# "Help run KindleHub": OFF unless switched on (Bob Setup or the settings page). See bob/helper.py.
+Description=Bob: help run KindleHub (chess moves only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Its own user: no access to Bob's settings, key, skills or anyone's files.
+User=bob-helper
+Group=bob-helper
+StateDirectory=bob-assistant-helper
+StateDirectoryMode=0755
+WorkingDirectory=/opt/bob-assistant
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/bob-assistant/venv/bin/python -m bob.helper
+Restart=always
+RestartSec=30
+# Bob always comes first: lowest priority, at most half of one core, a small memory ceiling.
+Nice=19
+IOSchedulingClass=idle
+CPUQuota=50%
+MemoryMax=300M
+TasksMax=16
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target

@@ -281,3 +281,41 @@ def test_flasher_cancel_stops():
     except flasher.Cancelled:
         pass
     t.close()
+
+
+START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
+
+def test_helper_accepts_only_a_chess_position():
+    from bob import helper
+    ok = helper.check_job({'t': 'job', 'j': 'a1b2c3d4-0000', 'fen': START, 'ms': 99999, 'elo': 9999})
+    assert ok == {'j': 'a1b2c3d4-0000', 'fen': START, 'ms': helper.MS_MAX, 'elo': helper.ELO_MAX}
+    for bad in ({'t': 'run', 'cmd': 'rm -rf /'}, {'t': 'job', 'j': 'x', 'fen': START},
+                {'t': 'job', 'j': 'a1b2c3d4', 'fen': START + '; quit'}, {'t': 'job', 'j': 'a1b2c3d4', 'fen': 'go infinite'},
+                {'t': 'job', 'j': 'a1b2c3d4', 'fen': START.replace(' w ', ' w\nquit\n')}, 'job', None):
+        assert helper.check_job(bad) is None, bad
+
+
+def test_helper_plays_through_uci():
+    import asyncio
+    from bob import helper
+    eng = helper.Engine([sys.executable, os.path.join(ROOT, 'tests', 'fake_stockfish.py')])
+    mv, depth = asyncio.run(eng.move(START, 100, 1500))
+    assert mv == 'e2e4' and depth == 7
+
+
+def test_helper_identity_is_private_and_kept():
+    from bob import helper
+    helper.STATE = os.path.join(TMP, 'helper')
+    helper.IDENTITY = os.path.join(helper.STATE, 'identity.json')
+    helper.STATUS = os.path.join(helper.STATE, 'status.json')
+    a = helper.identity()
+    assert helper.identity() == a and oct(os.stat(helper.IDENTITY).st_mode & 0o777) == '0o600'
+    helper.write_status(connected=True, link_code='ABCD2345')
+    assert helper.read_status()['link_code'] == 'ABCD2345'
+
+
+def test_setup_app_leaves_kindlehub_helper_off_unless_ticked():
+    assert json.loads(bob_setup.firstboot_json(bob_setup.DEMO))['kindlehub_helper'] is False
+    assert json.loads(bob_setup.firstboot_json(dict(bob_setup.DEMO, kindlehub_helper=True)))['kindlehub_helper'] is True
+    assert json.loads(bob_setup.firstboot_json(dict(bob_setup.DEMO, kindlehub_helper='yes')))['kindlehub_helper'] is False

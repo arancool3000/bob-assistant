@@ -21,6 +21,7 @@ UPD=/var/lib/bob-assistant-update
 ETC=/etc/bob
 USER_NAME=bob-assistant
 SKILL_USER=bob-skill
+HELPER_USER=bob-helper
 VOSK_URL="https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
 CONFIG_FILE=""
 BRANCH=""
@@ -48,7 +49,7 @@ newest_release() {   # the same rule the updater uses: vX.Y.Z only, highest vers
 say "System packages"
 $APT update
 $APT install -y git python3-venv python3-pip alsa-utils unzip curl avahi-daemon \
-  python3-gpiozero python3-lgpio python3-serial python3-smbus2 i2c-tools >/dev/null
+  python3-gpiozero python3-lgpio python3-serial python3-smbus2 i2c-tools stockfish >/dev/null
 systemctl enable --now avahi-daemon >/dev/null 2>&1 || true
 if command -v raspi-config >/dev/null; then                 # I2C and SPI on, for sensors (applies after a reboot)
   raspi-config nonint do_i2c 0 || true
@@ -58,6 +59,7 @@ fi
 say "Users"
 id "$USER_NAME" >/dev/null 2>&1 || useradd --system --home-dir "$STATE" --shell /usr/sbin/nologin "$USER_NAME"
 id "$SKILL_USER" >/dev/null 2>&1 || useradd --system --home-dir "$SKILL_DATA" --shell /usr/sbin/nologin "$SKILL_USER"
+id "$HELPER_USER" >/dev/null 2>&1 || useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin "$HELPER_USER"
 getent group audio >/dev/null && usermod -aG audio "$USER_NAME"
 for g in gpio i2c spi dialout video; do getent group "$g" >/dev/null && usermod -aG "$g" "$SKILL_USER"; done
 usermod -aG "$SKILL_USER" "$USER_NAME"                       # Bob may talk to the skill host's socket
@@ -147,6 +149,8 @@ if os.path.exists(first_path):
         sec['gemini_api_key'] = first['gemini_api_key'].strip()
     if first.get('web_password'):
         sec['web_password'] = config.hash_password(first['web_password'])
+    if first.get('kindlehub_helper') is True:            # "Help run KindleHub", ticked in Bob Setup (off by default)
+        open(os.path.join(config.STATE, '.helper-on'), 'w').close()
     os.remove(first_path)
 if cfg.get('town') and cfg.get('latitude') is None:
     try:
@@ -176,7 +180,8 @@ say "Services"
 SUDOERS_TMP=$(mktemp)
 cat > "$SUDOERS_TMP" <<EOF
 # the settings page may restart Bob and start an update check, nothing else
-$USER_NAME ALL=(root) NOPASSWD: /usr/bin/systemctl restart bob-assistant, /usr/bin/systemctl start --no-block bob-assistant-update-now.service
+# and switch "Help run KindleHub" on or off
+$USER_NAME ALL=(root) NOPASSWD: /usr/bin/systemctl restart bob-assistant, /usr/bin/systemctl start --no-block bob-assistant-update-now.service, /usr/bin/systemctl enable --now bob-assistant-helper.service, /usr/bin/systemctl disable --now bob-assistant-helper.service
 EOF
 visudo -cf "$SUDOERS_TMP" >/dev/null
 install -m 440 -o root -g root "$SUDOERS_TMP" /etc/sudoers.d/bob-assistant
@@ -187,6 +192,13 @@ systemctl enable bob-assistant-skills.service bob-assistant.service bob-assistan
 if [ "$UPGRADE" -eq 0 ]; then
   systemctl restart bob-assistant-skills.service bob-assistant-web.service bob-assistant.service
   systemctl start bob-assistant-update.timer
+fi
+# "Help run KindleHub" is never switched on here unless the owner ticked it in Bob Setup; it is off by default
+# and an upgrade leaves it exactly as it was.
+if [ -f "$STATE/.helper-on" ]; then
+  rm -f "$STATE/.helper-on"
+  systemctl enable --now bob-assistant-helper.service >/dev/null 2>&1 || true
+  echo "Helping run KindleHub: on (switch it off on the settings page)."
 fi
 
 # The setup app's first-boot files on the SD card held passwords and the key: wipe them now they have been used.

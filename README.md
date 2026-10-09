@@ -49,6 +49,9 @@ sensors (DHT22, BME280…), servos with their own power supply. See [docs/HARDWA
 
 Full walkthrough with troubleshooting: [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md).
 
+Optional, off by default: let your Pi [help run KindleHub](docs/HELP-RUN-KINDLEHUB.md) (chess moves only) for free
+KindleHub Plus.
+
 ## Set up (Mac, Linux, or a Pi you already have)
 
 Flash **Raspberry Pi OS Lite (64-bit)** with Raspberry Pi Imager and use its own settings for Wi-Fi, user and
