@@ -16,9 +16,11 @@ Bob Setup, or press *Switch on* in the *Help run KindleHub* card on Bob's settin
 
 ## Perks
 Link the Pi to your KindleHub account: the settings page shows an 8-character code; in KindleHub open
-**Settings → Your plan → Link a helper Pi** and type it. While the Pi has helped **10 hours in the last 7 days**,
-your account counts as **Plus** for free (Plus features, and your bug reports go to the top of the list). A
-paid plan you already have is never changed. It stops by itself if the Pi stops helping.
+**Settings → Your plan → Link a helper Pi** and type it. While the Pi has played moves for KindleHub in
+**10 different hours of the last 7 days**, your account gets **KindleTube and KindlePoki as on the Plus plan**,
+and nothing else. Only hours in which the Pi actually played a move count (being switched on is not enough),
+and hours from several Pis do not add up. A paid plan you already have is never changed. It stops by itself if
+the Pi stops helping.
 
 ## Switching it off
 Press *Switch off* on the settings page (or `sudo systemctl disable --now bob-assistant-helper`). It stops at once.

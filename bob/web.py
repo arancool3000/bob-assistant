@@ -93,8 +93,8 @@ def helper_card():
             'for KindleHub\'s computer opponent, and nothing else. One move at a time, at most half of one CPU core, '
             'lowest priority, so Bob always comes first. It connects out and opens no ports, and runs as its own user '
             'with no access to Bob\'s key or your files.</p>'
-            '<p class="sub">Perks: link this Pi to your KindleHub account. While it has helped 10 hours in the last '
-            'week, your account counts as Plus: Plus features, and your bug reports go to the top of the list.</p>')
+            '<p class="sub">Perk: link this Pi to your KindleHub account. While it has played moves for KindleHub in '
+            '10 different hours of the last week, your account gets KindleTube and KindlePoki as on the Plus plan.</p>')
     if not on:
         return ('<form method="post" action="/helper" class="card"><h2>Help run KindleHub</h2>%s'
                 '<div class="row"><span>Status</span><span class="pill">off</span></div>'

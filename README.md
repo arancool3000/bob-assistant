@@ -49,8 +49,8 @@ sensors (DHT22, BME280…), servos with their own power supply. See [docs/HARDWA
 
 Full walkthrough with troubleshooting: [docs/WINDOWS-SETUP.md](docs/WINDOWS-SETUP.md).
 
-Optional, off by default: let your Pi [help run KindleHub](docs/HELP-RUN-KINDLEHUB.md) (chess moves only) for free
-KindleHub Plus.
+Optional, off by default: let your Pi [help run KindleHub](docs/HELP-RUN-KINDLEHUB.md) (chess moves only) and get
+KindleTube and KindlePoki as on KindleHub Plus.
 
 ## Set up (Mac, Linux, or a Pi you already have)
 
