@@ -58,7 +58,7 @@ fi
 say "Users"
 id "$USER_NAME" >/dev/null 2>&1 || useradd --system --home-dir "$STATE" --shell /usr/sbin/nologin "$USER_NAME"
 id "$SKILL_USER" >/dev/null 2>&1 || useradd --system --home-dir "$SKILL_DATA" --shell /usr/sbin/nologin "$SKILL_USER"
-for g in audio; do getent group "$g" >/dev/null && usermod -aG "$g" "$USER_NAME"; done
+getent group audio >/dev/null && usermod -aG audio "$USER_NAME"
 for g in gpio i2c spi dialout video; do getent group "$g" >/dev/null && usermod -aG "$g" "$SKILL_USER"; done
 usermod -aG "$SKILL_USER" "$USER_NAME"                       # Bob may talk to the skill host's socket
 
@@ -164,8 +164,12 @@ if [ -n "$TZ_NAME" ] && [ -e "/usr/share/zoneinfo/$TZ_NAME" ]; then timedatectl 
 HAS_PW=$(runuser -u "$USER_NAME" -- "$HOME_DIR/venv/bin/python" -c "import json;print('yes' if json.load(open('$ETC/secrets.json')).get('web_password') else 'no')" 2>/dev/null || echo no)
 SETUP_CODE=""
 if [ "$HAS_PW" != "yes" ]; then                             # the settings page asks for this before the first password
-  SETUP_CODE=$(tr -dc 'A-HJ-NP-Z2-9' </dev/urandom | head -c 8)
-  runuser -u "$USER_NAME" -- sh -c "umask 077; printf '%s\n' '$SETUP_CODE' > '$ETC/setup-code'"
+  if [ -f "$ETC/setup-code" ]; then
+    SETUP_CODE=$(cat "$ETC/setup-code")                      # keep the code already shown
+  else
+    SETUP_CODE=$(tr -dc 'A-HJ-NP-Z2-9' </dev/urandom | head -c 8)
+    runuser -u "$USER_NAME" -- sh -c "umask 077; printf '%s\n' '$SETUP_CODE' > '$ETC/setup-code'"
+  fi
 fi
 
 say "Services"

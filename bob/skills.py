@@ -2,7 +2,7 @@
 
 "Hey Bob, I've wired an LED to GPIO 17 -- make a skill that turns it on and off." Bob writes a small Python file,
 reads back what it will do, and only installs it after you say yes. Each skill is one file in
-/var/lib/bob-assistant/skills/ that looks like this:
+/var/lib/bob-assistant-skills/ that looks like this:
 
     SKILL = {
         "name": "desk_led",
@@ -146,13 +146,14 @@ def reload_host():
         skillhost.call({'cmd': 'reload'}, timeout=5)
     except Exception:
         pass
-    for _ in range(40):                           # wait for it to come back (up to ~8 s)
-        time.sleep(0.2)
+    time.sleep(0.3)
+    for _ in range(50):                           # wait until it really answers again (up to ~10 s)
         try:
-            if os.path.exists(skillhost.SOCK):
+            if skillhost.call({'cmd': 'ping'}, timeout=2).get('ok'):
                 return True
-        except OSError:
+        except (OSError, ValueError):
             pass
+        time.sleep(0.2)
     return False
 
 

@@ -36,7 +36,12 @@ def _restart():
         os._exit(0)
 
 
+_name_locks = {}
+
+
 def _load(path):
+    """Load (once) and return a skill's module. Each skill has its own lock, so one that hangs while loading
+    (a stuck serial port, say) never holds up the others."""
     name = os.path.basename(path)[:-3]
     mt = os.path.getmtime(path)
     with _lock:
@@ -45,10 +50,17 @@ def _load(path):
             return hit[1]
         if hit:                                   # changed since it was loaded: start clean
             _restart()
+        lk = _name_locks.setdefault(name, threading.Lock())
+    with lk:
+        with _lock:
+            hit = _modules.get(name)
+            if hit and hit[0] == mt:
+                return hit[1]
         spec = importlib.util.spec_from_file_location('skill_' + name, path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        _modules[name] = (mt, mod)
+        with _lock:
+            _modules[name] = (mt, mod)
         return mod
 
 
@@ -89,6 +101,9 @@ def _serve_one(conn, skills_dir):
             req = json.loads(buf)
         except ValueError:
             conn.sendall(b'{"error": "bad request"}\n')
+            return
+        if req.get('cmd') == 'ping':
+            conn.sendall(b'{"ok": true}\n')
             return
         if req.get('cmd') == 'reload':
             conn.sendall(b'{"ok": true}\n')

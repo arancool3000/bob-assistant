@@ -13,6 +13,8 @@
 - Bob mentions a new version in the next conversation.
 - Turn automatic updates off on the settings page. *Check now* updates even when they are off.
 - By hand: `sudo systemctl start bob-assistant-update-now`.
+- A Pi installed from a branch (`install.sh --branch ...`) is moved onto the newest release at the next check;
+  turn automatic updates off on a development Pi.
 
 ## For maintainers
 1. Bump `VERSION`, commit to `main`, make sure the tests pass.

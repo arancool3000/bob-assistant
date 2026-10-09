@@ -342,6 +342,7 @@ def install_over_ssh(host, user, password, d, out, confirm_key=None):
         stdout.channel.settimeout(1800)
         stdin.write(password + '\n')
         stdin.flush()
+        stdin.channel.shutdown_write()           # nothing else will ever be typed: nothing can wait for it
         for line in iter(stdout.readline, ''):
             out(line.rstrip())
         return stdout.channel.recv_exit_status()

@@ -1,12 +1,13 @@
 [Unit]
 Description=Bob skill host (runs the skills Bob makes, as the bob-skill user)
 After=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 User=bob-skill
 Group=bob-skill
-WorkingDirectory=/opt/bob-assistant
-Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/var/lib/bob-skill
+Environment=PYTHONUNBUFFERED=1 PYTHONPATH=/opt/bob-assistant LG_WD=/var/lib/bob-skill
 ExecStart=/opt/bob-assistant/venv/bin/python -m bob.skillhost
 Restart=always
 RestartSec=1

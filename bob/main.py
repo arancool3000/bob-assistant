@@ -20,12 +20,17 @@ def log(msg):
     sys.stdout.flush()
 
 
-def set_state(s):
+_PHRASE = {}
+
+
+def set_state(s, phrase=None):
     """What Bob is doing, for the web page (asleep / listening / speaking / working / needs_setup)."""
+    if phrase:
+        _PHRASE['p'] = phrase
     try:
         os.makedirs(config.STATE, exist_ok=True)
         with open(STATE_FILE + '.tmp', 'w') as f:
-            json.dump({'state': s, 'at': time.time()}, f)
+            json.dump({'state': s, 'at': time.time(), 'phrase': _PHRASE.get('p')}, f)
         os.replace(STATE_FILE + '.tmp', STATE_FILE)
     except OSError:
         pass
@@ -58,7 +63,10 @@ def main():
     ww = wake.WakeWord(cfg, VOSK_MODEL)
     set_state('asleep')
     speaker.play(audio.tone((660, 990, 1320), 120, 0.2))      # "I'm ready" -- also how a first install says it is done
-    log('listening for "%s" (on this Pi; nothing leaves it until then)' % cfg.get('wake_phrase'))
+    if ww.fell_back:
+        log('the wake phrase "%s" uses words the offline recogniser does not know: using "hey bob"' % cfg.get('wake_phrase'))
+    set_state('asleep', phrase=ww.phrase)
+    log('listening for "%s" (on this Pi; nothing leaves it until then)' % ww.phrase)
     failures = 0
     while True:
         try:

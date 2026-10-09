@@ -17,7 +17,7 @@ from . import audio, config, skills, tools, updater, wake
 
 SESSIONS = {}
 SESSION_HOURS = 24 * 30
-FAILS = []                              # recent wrong passwords (any client): at most 10 per 10 minutes
+FAILS = {}                              # client address -> recent wrong passwords: at most 10 per 10 minutes each
 SETUP_CODE_FILE = os.path.join(config.ETC, 'setup-code')
 VOSK_MODEL = os.path.join(config.STATE, 'vosk-model')
 VOICES = ['Charon', 'Puck', 'Kore', 'Fenrir', 'Aoede', 'Leda', 'Orus', 'Zephyr']
@@ -55,9 +55,9 @@ def bob_state():
     try:
         with open(os.path.join(config.STATE, 'state.json')) as f:
             d = json.load(f)
-        return d.get('state', '?')
+        return d.get('state', '?'), d.get('phrase')
     except (OSError, ValueError):
-        return 'starting'
+        return 'starting', None
 
 
 def _allowed_hosts():
@@ -200,8 +200,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._redirect('/login')
         if path == '/login':
             now = time.time()
-            FAILS[:] = [t for t in FAILS if now - t < 600]
-            if len(FAILS) >= 10:
+            who = self.client_address[0] if self.client_address else '?'
+            for k in list(FAILS):
+                FAILS[k] = [t for t in FAILS[k] if now - t < 600]
+                if not FAILS[k]:
+                    del FAILS[k]
+            if len(FAILS.get(who, [])) >= 10 or sum(len(v) for v in FAILS.values()) >= 100:
                 return self._send(429, self.login('Too many tries: wait ten minutes.'))
             for k in [k for k, exp in SESSIONS.items() if exp < now]:
                 del SESSIONS[k]
@@ -209,7 +213,7 @@ class Handler(BaseHTTPRequestHandler):
                 tok = secrets.token_urlsafe(24)
                 SESSIONS[tok] = time.time() + SESSION_HOURS * 3600
                 return self._redirect('/', {'Set-Cookie': 'bob=%s; Path=/; HttpOnly; SameSite=Strict; Max-Age=%d' % (tok, SESSION_HOURS * 3600)})
-            FAILS.append(now)
+            FAILS.setdefault(who, []).append(now)
             time.sleep(1)
             return self._send(200, self.login('Wrong password.'))
         if not self._signed_in():
@@ -285,9 +289,9 @@ class Handler(BaseHTTPRequestHandler):
             pi_st = tools.pi_status()
         except Exception:
             pass
-        st = bob_state()
+        st, active_phrase = bob_state()
         sk, bad = skills.load_all()
-        state_txt = {'asleep': 'Listening for "%s"' % cfg['wake_phrase'], 'listening': 'In a conversation',
+        state_txt = {'asleep': 'Listening for "%s"' % (active_phrase or cfg['wake_phrase']), 'listening': 'In a conversation',
                      'speaking': 'Speaking', 'working': 'Using a tool', 'needs_setup': 'Needs your Gemini key'}.get(st, st)
         voice_opts = ''.join('<option%s>%s</option>' % (' selected' if v == cfg['voice'] else '', v) for v in VOICES)
         skills_html = ''.join('<div class="row"><span><b>%s</b><br><span class="sub">%s</span></span><span><a class="btn plain" href="/skill?name=%s">Code</a> '

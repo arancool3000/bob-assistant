@@ -164,6 +164,14 @@ def check(force=False):
 
 
 if __name__ == '__main__':
+    import fcntl
+    try:
+        _ensure_dir()
+        lock = open(os.path.join(UPD, 'lock'), 'w')
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)        # the timer and "Check now" never overlap
+    except BlockingIOError:
+        log('another update check is running')
+        sys.exit(0)
     try:
         print(json.dumps(check(force='--force' in sys.argv)))
     except Exception as e:

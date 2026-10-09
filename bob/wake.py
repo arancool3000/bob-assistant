@@ -65,7 +65,11 @@ class WakeWord:
         self.cfg = cfg
         self.model = vosk.Model(model_dir)
         phrase = ' '.join(str(cfg.get('wake_phrase', '') or '').lower().replace(',', ' ').split())
-        self.phrase = phrase if phrase and not check_phrase(phrase, model_dir) else 'hey bob'
+        ok = bool(phrase) and not check_phrase(phrase, model_dir)
+        if ok and hasattr(self.model, 'find_word'):          # the model itself is the final word on its vocabulary
+            ok = all(self.model.find_word(w) != -1 for w in phrase.split())
+        self.phrase = phrase if ok else 'hey bob'
+        self.fell_back = not ok and phrase != 'hey bob'
 
     def wait(self, mic, stop=None):
         """Block until the wake phrase is heard (returns True), or stop() says to give up (returns False)."""

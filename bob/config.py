@@ -1,6 +1,6 @@
 """Settings. Two files, both written by the installer (or the Windows setup app's first-boot file):
 
-  /etc/bob/config.json   everyday settings anyone on the Pi may read (wake phrase, voice, town, ...)
+  /etc/bob/config.json   everyday settings (wake phrase, voice, town, ...), readable by Bob's own user
   /etc/bob/secrets.json  the Gemini API key and the web page password hash -- readable only by Bob (0600)
 
 Everything has a default, so a missing key never stops Bob from starting.
