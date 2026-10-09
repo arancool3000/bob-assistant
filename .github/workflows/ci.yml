@@ -1,0 +1,35 @@
+name: tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install pytest pyflakes pyyaml websockets
+      - run: python -m pyflakes bob setup-windows tests
+      - run: python -m pytest -q tests
+      - run: bash -n install.sh && shellcheck -S warning install.sh
+  windows-app:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r setup-windows/requirements.txt pyinstaller==6.11.1
+      - run: pyinstaller --onefile --windowed --name Bob-Setup setup-windows/bob_setup.py
+      - name: self-test the built app
+        shell: pwsh
+        run: |
+          $p = Start-Process dist\Bob-Setup.exe -ArgumentList '--selftest' -Wait -PassThru
+          Get-Content dist\selftest.txt
+          if ($p.ExitCode -ne 0) { exit 1 }

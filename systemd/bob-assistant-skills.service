@@ -1,0 +1,24 @@
+[Unit]
+Description=Bob skill host (runs the skills Bob makes, as the bob-skill user)
+After=network-online.target
+
+[Service]
+User=bob-skill
+Group=bob-skill
+WorkingDirectory=/opt/bob-assistant
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/bob-assistant/venv/bin/python -m bob.skillhost
+Restart=always
+RestartSec=1
+RuntimeDirectory=bob-assistant-skills
+RuntimeDirectoryMode=0750
+UMask=0007
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/bob-skill
+InaccessiblePaths=-/etc/bob -/var/lib/bob-assistant
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Bob automatic update (installs new tagged releases, rolls back if Bob will not start)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/bob-assistant
+ExecStart=/opt/bob-assistant/venv/bin/python -m bob.updater
+TimeoutStartSec=1800

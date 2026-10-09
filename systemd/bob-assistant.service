@@ -1,0 +1,21 @@
+[Unit]
+Description=Bob voice assistant
+After=network-online.target sound.target bob-assistant-skills.service
+Wants=network-online.target bob-assistant-skills.service
+
+[Service]
+User=bob-assistant
+Group=bob-assistant
+WorkingDirectory=/opt/bob-assistant
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/bob-assistant/venv/bin/python -m bob.main
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/bob-assistant /var/lib/bob-assistant-skills /etc/bob
+
+[Install]
+WantedBy=multi-user.target

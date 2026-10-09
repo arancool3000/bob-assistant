@@ -1,0 +1,18 @@
+[Unit]
+Description=Bob settings page (port 8080)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=bob-assistant
+Group=bob-assistant
+WorkingDirectory=/opt/bob-assistant
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/bob-assistant/venv/bin/python -m bob.web
+Restart=always
+RestartSec=5
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

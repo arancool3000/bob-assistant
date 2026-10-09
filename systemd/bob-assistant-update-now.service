@@ -1,0 +1,10 @@
+[Unit]
+Description=Bob update, now (the settings page's "Check now", even if automatic updates are off)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/bob-assistant
+ExecStart=/opt/bob-assistant/venv/bin/python -m bob.updater --force
+TimeoutStartSec=1800

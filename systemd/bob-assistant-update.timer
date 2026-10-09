@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for Bob updates every day
+
+[Timer]
+OnBootSec=15min
+OnCalendar=*-*-* 04:00
+RandomizedDelaySec=2h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
