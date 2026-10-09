@@ -36,12 +36,13 @@ sensors (DHT22, BME280…), servos with their own power supply. See [docs/HARDWA
 
 ## Set up (Windows, no commands)
 
-1. Download **Raspberry Pi Imager** from raspberrypi.com and **Bob-Setup.exe** from the
-   [latest release](https://github.com/arancool3000/bob-assistant/releases/latest).
-2. In Imager choose your Pi, **Raspberry Pi OS Lite (64-bit)** and your SD card. **Skip** Imager's own
-   customisation. Write the card, then unplug and re-plug it until a drive called **bootfs** appears.
-3. Open **Bob-Setup.exe**. Fill in your Wi-Fi, a Pi password, your Gemini key, and a password for Bob's
-   settings page. On the last tab pick the card and press **Save to SD card**. Eject the card in Windows.
+1. Download **Bob-Setup.exe** from the [latest release](https://github.com/arancool3000/bob-assistant/releases/latest)
+   and put the microSD card in your PC (a USB card reader is fine).
+2. Open **Bob-Setup.exe** (allow it to make changes: it writes the card). Fill in your Wi-Fi, a Pi password,
+   your Gemini key, and a password for Bob's settings page.
+3. On the last tab choose the card and press **Write card**, then type ERASE. The app downloads Raspberry Pi OS
+   Lite (64-bit) from raspberrypi.com, writes and checks it, adds your settings and ejects the card
+   (10–20 minutes). No Raspberry Pi Imager needed.
 4. Put the card in the Pi, plug in the speakerphone, then power. The first start installs Bob by itself
    (**10–20 minutes**). A rising three-note chime means he's ready.
 5. Say **"Hey Bob"**. Settings: `http://bob.local:8080` (or the Pi's IP address from your router).

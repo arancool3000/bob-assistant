@@ -29,7 +29,7 @@ jobs:
       - name: build installs this release's install.sh
         shell: pwsh
         run: Set-Content -Path setup-windows/_version.py -Value "TAG = '$env:GITHUB_REF_NAME'"
-      - run: pyinstaller --onefile --windowed --name Bob-Setup --paths setup-windows setup-windows/bob_setup.py
+      - run: pyinstaller --onefile --windowed --uac-admin --name Bob-Setup --paths setup-windows setup-windows/bob_setup.py
       - name: self-test the built app
         shell: pwsh
         run: |

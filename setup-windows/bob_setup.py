@@ -2,17 +2,19 @@
 
 Two ways to set up a Raspberry Pi as Bob:
 
-  1. Prepare an SD card  (recommended, for a brand-new Pi)
-     Flash "Raspberry Pi OS Lite (64-bit)" with Raspberry Pi Imager first -- choose NO customisation, this app
-     does that. Then, with the card still in this PC, pick its boot drive here. The app writes your Wi-Fi, a
-     login, SSH, and Bob's settings (Gemini key, name, town, settings-page password) onto it. Put the card in
-     the Pi and power it on: it joins your Wi-Fi and installs Bob by itself (10-20 minutes the first time).
+  1. Write a microSD card  (recommended, for a brand-new Pi)
+     Choose the card: the app downloads Raspberry Pi OS Lite (64-bit) from raspberrypi.com, writes and checks it
+     (flasher.py), then writes your Wi-Fi, a login, SSH, and Bob's settings (Gemini key, name, town,
+     settings-page password) onto it. Put the card in the Pi and power it on: it joins your Wi-Fi and installs
+     Bob by itself (10-20 minutes the first time). A card already flashed with Raspberry Pi Imager (no
+     customisation) can have just the settings added.
 
   2. Install on a Pi that is already running
      Give its address, user name and password; the app installs Bob over the network (SSH) and shows progress.
 
-Nothing is sent anywhere except to your own Pi. The Gemini key and passwords sit on the card only until first
-boot, when the installer moves them into a file only Bob can read and deletes the copy on the card.
+Nothing is sent anywhere except to your own Pi (the only download is the Raspberry Pi OS image). The Gemini key
+and passwords sit on the card only until first boot, when the installer moves them into a file only Bob can read
+and deletes the copy on the card.
 """
 import json
 import os
@@ -22,6 +24,8 @@ import string
 import sys
 import threading
 import webbrowser
+
+import flasher
 
 REPO = 'arancool3000/bob-assistant'
 try:
@@ -369,8 +373,8 @@ def gui():
             pass
     root = tk.Tk()
     root.title('Bob Setup')
-    root.geometry('640x760')
-    root.minsize(580, 660)
+    root.geometry('700x880')
+    root.minsize(620, 780)
     try:
         ttk.Style().theme_use('vista' if os.name == 'nt' else 'clam')
     except tk.TclError:
@@ -422,6 +426,8 @@ def gui():
     def out(text):
         lines.put(text)
 
+    ui = {'progress': None}
+
     def pump():
         try:
             while True:
@@ -429,6 +435,14 @@ def gui():
                 log.see('end')
         except queue.Empty:
             pass
+        p = ui['progress']
+        if p:
+            stage, done, total = p
+            bar['value'] = 1000 * done / max(total, 1)
+            status.set('%s %.1f of %.1f GB' % ('Writing' if stage == 'write' else 'Checking', done / 1e9, total / 1e9))
+        else:
+            bar['value'] = 0
+            status.set('')
         root.after(100, pump)
 
     def data():
@@ -443,9 +457,133 @@ def gui():
             return None
         return d
 
-    ttk.Label(p3, text='A. New Pi: prepare the SD card', font=('Segoe UI', 11, 'bold')).pack(anchor='w')
-    ttk.Label(p3, text='Flash "Raspberry Pi OS Lite (64-bit)" with Raspberry Pi Imager and skip its customisation. '
-                       'Unplug and re-plug the card until a drive called bootfs appears, then:', wraplength=560).pack(anchor='w')
+    ttk.Label(p3, text='A. New Pi: write the microSD card', font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+    ttk.Label(p3, text='Put the card in this PC (a USB card reader is fine) and choose it. Bob Setup downloads Raspberry '
+                       'Pi OS Lite (64-bit) from raspberrypi.com (about 550 MB), writes it, checks it and adds your '
+                       'settings. Everything on the card is erased.', wraplength=600).pack(anchor='w')
+    card = tk.StringVar()
+    cards = {}
+    row = ttk.Frame(p3)
+    row.pack(fill='x', pady=4)
+    cd = ttk.Combobox(row, textvariable=card, state='readonly', width=44)
+    cd.pack(side='left')
+    flash_btn = ttk.Button(row, text='Write card')
+    prow = ttk.Frame(p3)
+    prow.pack(fill='x')
+    bar = ttk.Progressbar(prow, maximum=1000)
+    bar.pack(side='left', fill='x', expand=True)
+    cancel_btn = ttk.Button(prow, text='Cancel', state='disabled')
+    cancel_btn.pack(side='left', padx=6)
+    status = tk.StringVar()
+    ttk.Label(p3, textvariable=status, foreground='#555').pack(anchor='w')
+    stop = threading.Event()
+
+    def refresh_cards():
+        cards.clear()
+        try:
+            for dsk in flasher.choose_disks(flasher.list_disks()):
+                cards[flasher.describe(dsk)] = dsk
+        except Exception as e:
+            out('Could not list the cards: %s' % e)
+        cd['values'] = list(cards)
+        card.set(next(iter(cards), ''))
+        if not cards and os.name == 'nt':
+            out('No microSD card found. Put one in (or plug in the card reader), then press Refresh.')
+
+    def progress(stage, done, total):
+        ui['progress'] = (stage, done, total)
+
+    def confirm_erase(desc):
+        top = tk.Toplevel(root)
+        top.title('Erase this card?')
+        top.transient(root)
+        top.grab_set()
+        ttk.Label(top, text='Everything on this card will be erased:\n\n%s\n\nType ERASE to continue.' % desc,
+                  padding=14, wraplength=440).pack()
+        typed = tk.StringVar()
+        ent = ttk.Entry(top, textvariable=typed)
+        ent.pack(padx=14, fill='x')
+        ent.focus_set()
+        res = {}
+
+        def ok(_e=None):
+            if typed.get().strip().upper() == 'ERASE':
+                res['ok'] = True
+                top.destroy()
+            else:
+                messagebox.showerror('Bob Setup', 'Type ERASE to erase the card, or press Cancel.', parent=top)
+        btns = ttk.Frame(top, padding=14)
+        btns.pack()
+        ttk.Button(btns, text='Erase and write', command=ok).pack(side='left', padx=4)
+        ttk.Button(btns, text='Cancel', command=top.destroy).pack(side='left', padx=4)
+        ent.bind('<Return>', ok)
+        root.wait_window(top)
+        return res.get('ok', False)
+
+    def busy(on):
+        for b in (flash_btn, card_btn, ssh_btn):
+            b.state(['disabled'] if on else ['!disabled'])
+        cancel_btn.state(['!disabled'] if on else ['disabled'])
+        if not on:
+            ui['progress'] = None
+
+    def do_flash():
+        d = check(validate_card)
+        if not d:
+            return
+        disk = cards.get(card.get())
+        if not disk:
+            messagebox.showerror('Bob Setup', 'Choose the microSD card (press Refresh after putting it in).')
+            return
+        if not flasher.is_admin():
+            messagebox.showerror('Bob Setup', 'Writing a card needs administrator rights: close Bob Setup, right-click it '
+                                              'and choose "Run as administrator".')
+            return
+        if not confirm_erase(flasher.describe(disk)):
+            return
+        stop.clear()
+        busy(True)
+
+        def work():
+            try:
+                out('Looking up the newest Raspberry Pi OS Lite (64-bit)...')
+                img = flasher.latest_os()
+                out('Using %s (released %s).' % (img['url'].rsplit('/', 1)[-1], img.get('release_date') or '?'))
+                if int(disk['Size']) < int(img['extract_size']):
+                    raise IOError('the card is too small for the image')
+                out('Clearing the card...')
+                flasher.clear_disk(disk)
+                out('Downloading and writing (10-20 minutes)...')
+                target = flasher.DiskTarget(disk['Number'])
+                try:
+                    flasher.write_image(flasher.http_opener(img['url']), target, int(img['extract_size']),
+                                        img['extract_sha256'], progress, stop.is_set)
+                finally:
+                    target.close()
+                out('Written and checked. Adding your settings...')
+                boot = flasher.boot_drive_of(disk['Number'])
+                for line in prepare_card(boot, d):
+                    out(line)
+                ejected = flasher.eject(boot)
+                out('\nDone. ' + ('The card was ejected: you can take it out.' if ejected else
+                                  'In File Explorer, use "Eject" on the bootfs drive before taking the card out.'))
+                out('Put it in the Pi with the USB speakerphone plugged in, and switch on.')
+                out('Give it 10-20 minutes the first time; a rising three-note chime means Bob is ready. Then say "%s".' % d['wake_phrase'])
+                out('Settings: http://%s.local:8080 (or the Pi\'s IP address from your router).' % d['hostname'])
+            except flasher.Cancelled:
+                out('Stopped. The card is blank now: write it again before using it.')
+            except Exception as e:
+                out('Could not write the card: %s' % e)
+            finally:
+                root.after(0, lambda: busy(False))
+        threading.Thread(target=work, daemon=True).start()
+    ttk.Button(row, text='Refresh', command=refresh_cards).pack(side='left', padx=6)
+    flash_btn.pack(side='left')
+    flash_btn.configure(command=do_flash)
+    cancel_btn.configure(command=stop.set)
+
+    ttk.Label(p3, text='Already flashed it with Raspberry Pi Imager (no customisation)? Choose its bootfs drive:',
+              wraplength=600).pack(anchor='w', pady=(10, 0))
     drive = tk.StringVar()
     drives = {}
     row = ttk.Frame(p3)
@@ -460,12 +598,10 @@ def gui():
             drives['%s  %s' % (r, label or '')] = r
         dd['values'] = list(drives)
         drive.set(next(iter(drives), ''))
-        if not drives:
-            out('No Raspberry Pi boot drive found. Flash the card with Raspberry Pi Imager, re-insert it, then press Refresh.')
     ttk.Button(row, text='Refresh', command=refresh).pack(side='left', padx=6)
-    card_btn = ttk.Button(row, text='Save to SD card')
+    card_btn = ttk.Button(row, text='Save settings only')
     card_btn.pack(side='left')
-    ttk.Checkbutton(p3, text='Show non-removable drives too', variable=show_all, command=refresh).pack(anchor='w')
+    ttk.Checkbutton(row, text='Show non-removable drives', variable=show_all, command=refresh).pack(side='left', padx=6)
 
     def do_card():
         d = check(validate_card)
@@ -531,6 +667,7 @@ def gui():
     ssh_btn.configure(command=do_ssh)
     log.pack(fill='both', expand=True, pady=(10, 0))
     refresh()
+    refresh_cards()
     pump()
     root.mainloop()
 
@@ -555,6 +692,14 @@ if __name__ == '__main__':
                 open(os.path.join(tmp, n), 'w').write('console=tty1 rootwait\n' if n == 'cmdline.txt' else '')
             prepare_card(tmp, DEMO)
             import importlib.util
+            import hashlib
+            import lzma
+            img = os.urandom(3 << 20)                     # a small "image": the writer's whole path, minus the card
+            xz = lzma.compress(img)
+            target = flasher.FileTarget(os.path.join(tmp, 'card.img'))
+            flasher.write_image(lambda off: __import__('io').BytesIO(xz[off:]), target, len(img), hashlib.sha256(img).hexdigest())
+            target.close()
+            assert open(os.path.join(tmp, 'card.img'), 'rb').read()[:len(img)] == img
             assert importlib.util.find_spec('paramiko'), 'paramiko is not bundled'
         except Exception as e:
             ok = False

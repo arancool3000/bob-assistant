@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r setup-windows/requirements.txt pyinstaller==6.11.1
-      - run: pyinstaller --onefile --windowed --name Bob-Setup setup-windows/bob_setup.py
+      - run: pyinstaller --onefile --windowed --uac-admin --name Bob-Setup --paths setup-windows setup-windows/bob_setup.py
       - name: self-test the built app
         shell: pwsh
         run: |

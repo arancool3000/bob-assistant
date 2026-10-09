@@ -190,3 +190,94 @@ def test_setup_app_writes_old_style_card():
     assert 'wrote firstrun.sh' in done
     assert 'systemd.run=/boot/firmware/firstrun.sh' in open(os.path.join(root, 'cmdline.txt')).read()
     assert os.path.exists(os.path.join(root, 'ssh'))
+
+
+def _xz_image(n=5 << 20):
+    import hashlib
+    import lzma
+    img = os.urandom(n)
+    return img, lzma.compress(img), hashlib.sha256(img).hexdigest()
+
+
+def test_flasher_finds_the_image_in_imagers_list():
+    import flasher
+    lst = {'os_list': [{'name': 'Other', 'subitems': [dict(flasher.FALLBACK)]}]}
+    assert flasher.find_os_entry(lst)['extract_sha256'] == flasher.FALLBACK['extract_sha256']
+    bad = dict(flasher.FALLBACK, url='https://evil.example/x.img.xz')
+    try:
+        flasher.find_os_entry({'os_list': [bad]})
+        assert False, 'a download from anywhere else must be refused'
+    except ValueError:
+        pass
+
+
+def test_flasher_only_offers_cards():
+    import flasher
+    disks = [
+        {'Number': 0, 'Bus': 'NVMe', 'Size': 512e9, 'IsBoot': True, 'IsSystem': True},
+        {'Number': 1, 'Bus': 'USB', 'Size': 32e9, 'IsBoot': False, 'IsSystem': False, 'FriendlyName': 'SD Card'},
+        {'Number': 2, 'Bus': '12', 'Size': 64e9},
+        {'Number': 3, 'Bus': 'USB', 'Size': 2e12},                  # a USB hard drive: too big to be a card
+        {'Number': 4, 'Bus': 'USB', 'Size': 2e9},                   # too small
+        {'Number': 5, 'Bus': 'SATA', 'Size': 64e9},
+        {'Number': 6, 'Bus': 'USB', 'Size': 32e9, 'IsSystem': True},
+    ]
+    assert [d['Number'] for d in flasher.choose_disks(disks)] == [1, 2]
+    assert 'SD Card' in flasher.describe(disks[1]) and '32.0 GB' in flasher.describe(disks[1])
+
+
+def test_flasher_writes_resumes_and_verifies():
+    import io
+    import flasher
+    img, xz, sha = _xz_image()
+    calls = []
+
+    def open_at(off):                     # drops the connection once, part-way through
+        calls.append(off)
+        if len(calls) == 1:
+            class Drop(io.BytesIO):
+                def read(self, n=-1):
+                    if self.tell() > len(xz) // 2:
+                        raise ConnectionResetError('dropped')
+                    return super().read(min(n, 65536))
+            return Drop(xz)
+        return io.BytesIO(xz[off:])
+    path = os.path.join(TMP, 'card.img')
+    flasher.time.sleep, slept = (lambda s: None), flasher.time.sleep
+    try:
+        t = flasher.FileTarget(path)
+        stages = set()
+        flasher.write_image(open_at, t, len(img), sha, lambda st, d, n: stages.add(st))
+        t.close()
+    finally:
+        flasher.time.sleep = slept
+    assert len(calls) == 2 and calls[1] > 0, 'the download carried on where it stopped'
+    assert open(path, 'rb').read()[:len(img)] == img and stages == {'write', 'verify'}
+
+
+def test_flasher_refuses_a_damaged_image_and_leaves_no_partition_table():
+    import io
+    import flasher
+    img, xz, _sha = _xz_image(3 << 20)
+    path = os.path.join(TMP, 'card2.img')
+    t = flasher.FileTarget(path)
+    try:
+        flasher.write_image(lambda off: io.BytesIO(xz[off:]), t, len(img), '0' * 64)
+        assert False
+    except flasher.Damaged:
+        pass
+    t.close()
+    assert open(path, 'rb').read(flasher.HEAD).strip(b'\0') == b'', 'the first megabyte is only written once all is well'
+
+
+def test_flasher_cancel_stops():
+    import io
+    import flasher
+    img, xz, sha = _xz_image(3 << 20)
+    t = flasher.FileTarget(os.path.join(TMP, 'card3.img'))
+    try:
+        flasher.write_image(lambda off: io.BytesIO(xz[off:]), t, len(img), sha, cancel=lambda: True)
+        assert False
+    except flasher.Cancelled:
+        pass
+    t.close()
