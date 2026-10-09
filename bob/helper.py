@@ -12,8 +12,9 @@ it plays chess moves for KindleHub's computer opponent. That is the only job it 
   - it runs as its own system user (bob-helper) with no access to Bob's settings, key, skills or your files
 
 Perks: link the Pi to your KindleHub account (the code is on Bob's settings page; enter it in KindleHub under
-Settings > Helper Pi). While the Pi has helped 10 hours in the last week your account counts as Plus: Plus
-features, and your bug reports go to the top of the list.
+Settings > Helper Pi). While the Pi has played moves for KindleHub in 10 different hours of the last week, your
+account gets KindleTube and KindlePoki as on the Plus plan. Only hours with moves count; being switched on is not
+enough, and several Pis do not add up.
 
 Switch it off on the settings page (or `sudo systemctl disable --now bob-assistant-helper`): it stops at once.
 """

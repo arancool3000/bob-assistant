@@ -423,7 +423,7 @@ def gui():
     ttk.Checkbutton(p2, text='Help run KindleHub (optional)', variable=helper_on).pack(anchor='w', pady=(12, 0))
     ttk.Label(p2, text='Lends the Pi\'s spare time to KindleHub (free games for e-readers): it plays chess moves for '
                        'its computer opponent and nothing else, using at most half of one core at lowest priority. '
-                       'Perks: link it to your KindleHub account for Plus features and your bug reports first. '
+                       'Perk: link it to your KindleHub account for KindleTube and KindlePoki as on Plus. '
                        'Switch it off any time on Bob\'s settings page.', foreground='#777', font=('Segoe UI', 8),
               wraplength=600).pack(anchor='w')
 
