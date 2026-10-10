@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: pip install pytest pyflakes pyyaml websockets
-      - run: python -m pyflakes bob setup-windows tests
+      - run: python -m pyflakes bob setup-windows tests examples
       - run: python -m pytest -q tests
       - run: bash -n install.sh && shellcheck -S warning install.sh
   windows-app:

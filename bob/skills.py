@@ -22,18 +22,26 @@ confirmed=true unless that exact code was offered for confirmation first. New sk
 through run_skill, and appear as tools of their own from the next conversation.
 """
 import ast
+import difflib
+import glob
 import hashlib
 import json
 import os
 import re
+import shutil
 import time
 
-from . import skillhost
+from . import config, skillhost
 
 SKILLS_DIR = os.environ.get('BOB_SKILLS', '/var/lib/bob-assistant-skills')
 NAME_RE = re.compile(r'^[a-z][a-z0-9_]{1,40}$')
 MAX_BYTES = 20000
-RESERVED = {'create_skill', 'run_skill', 'list_skills', 'show_skill', 'delete_skill', 'test_skill'}
+RESERVED = {'create_skill', 'run_skill', 'list_skills', 'show_skill', 'delete_skill', 'test_skill', 'disable_skill',
+            'enable_skill', 'rollback_skill', 'i2c_scan', 'install_example_skill'}
+HISTORY = os.path.join(SKILLS_DIR, '.history')     # earlier versions of each skill, newest last (10 kept)
+KEEP_VERSIONS = 10
+PENDING = os.path.join(config.STATE, 'pending-skills')   # skills waiting for a yes, shown on the settings page
+EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'examples', 'skills')
 
 
 TYPES = {'STRING', 'NUMBER', 'INTEGER', 'BOOLEAN', 'ARRAY', 'OBJECT'}
@@ -98,12 +106,221 @@ def validate(name, code):
     return skill
 
 
+def _off(name):
+    return _path(name) + '.off'
+
+
+def _current(name):
+    """The file holding a skill now: name.py, or name.py.off when it is switched off. None if neither."""
+    for p in (_path(name), _off(name)):
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def _keep_version(name):
+    """Copy the skill as it is now into its history before it is replaced."""
+    cur = _current(name)
+    if not cur:
+        return
+    d = os.path.join(HISTORY, name)
+    os.makedirs(d, exist_ok=True)
+    shutil.copy2(cur, os.path.join(d, '%d.py' % int(time.time() * 1000)))
+    for old in sorted(glob.glob(os.path.join(d, '*.py')))[:-KEEP_VERSIONS]:
+        os.remove(old)
+
+
+def versions(name):
+    """Earlier versions of a skill, newest first: [{'id', 'when', 'code'}]."""
+    _path(name)
+    out = []
+    for p in sorted(glob.glob(os.path.join(HISTORY, name, '*.py')), reverse=True):
+        vid = os.path.basename(p)[:-3]
+        with open(p) as f:
+            out.append({'id': vid, 'when': time.strftime('%d %b %H:%M', time.localtime(int(vid) / 1000)), 'code': f.read()})
+    return out
+
+
 def save(name, code):
     os.makedirs(SKILLS_DIR, exist_ok=True)
+    _keep_version(name)
+    off = os.path.exists(_off(name))
     tmp = _path(name) + '.tmp'
     with open(tmp, 'w') as f:
         f.write(code)
-    os.replace(tmp, _path(name))
+    os.replace(tmp, _off(name) if off else _path(name))     # a switched-off skill stays off when it is replaced
+
+
+def set_enabled(name, on):
+    """Switch one skill off (kept, not loaded) or back on, without touching any other skill or an update."""
+    src, dst = (_off(name), _path(name)) if on else (_path(name), _off(name))
+    if not os.path.exists(src):
+        return os.path.exists(dst)            # already in that state (or no such skill: False)
+    os.replace(src, dst)
+    reload_host()
+    return True
+
+
+def is_enabled(name):
+    return os.path.exists(_path(name))
+
+
+def rollback(name, version_id=None):
+    """Put an earlier version back (the newest earlier one unless version_id says which). The current one is kept
+    in the history too, so a rollback can itself be undone."""
+    vs = versions(name)
+    if not vs:
+        raise ValueError('%s has no earlier version' % name)
+    v = next((x for x in vs if x['id'] == str(version_id)), None) if version_id else vs[0]
+    if not v:
+        raise ValueError('no such version of %s' % name)
+    validate(name, v['code'])
+    save(name, v['code'])
+    reload_host()
+    return v
+
+
+# ---- what a skill can reach (shown before you say yes) ------------------------------------------------
+
+ACCESS_IMPORTS = [
+    (('gpiozero', 'RPi', 'lgpio', 'pigpio'), 'GPIO pins (switching things on and off, reading buttons)'),
+    (('smbus', 'smbus2', 'board', 'busio', 'spidev', 'adafruit_'), 'I2C / SPI sensors and chips'),
+    (('serial',), 'serial ports (USB devices, Arduinos)'),
+    (('urllib', 'http', 'requests', 'socket', 'websocket', 'websockets', 'ftplib', 'smtplib', 'ssl', 'aiohttp'),
+     'the internet and your home network'),
+    (('subprocess', 'pty', 'multiprocessing'), 'running other programs on the Pi'),
+    (('ctypes', 'importlib'), 'low-level or dynamically loaded code'),
+    (('picamera2', 'cv2'), 'a camera'),
+    (('sounddevice', 'pyaudio', 'alsaaudio'), 'the microphone or speaker'),
+]
+SENSITIVE = ('the internet and your home network', 'running other programs on the Pi', 'low-level or dynamically loaded code',
+             'a camera', 'the microphone or speaker', 'writing files')
+
+
+def access_report(code):
+    """What a skill's code reaches for, read from the code itself (its imports and calls), in plain words.
+    It reports, it does not sandbox: the hard limits are the skill host's (see BOUNDARY)."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return ['the code does not parse']
+    mods, calls = set(), set()
+    writes = reads = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            mods.update(a.name.split('.')[0] for a in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            mods.add(node.module.split('.')[0])
+        elif isinstance(node, ast.Call):
+            f = node.func
+            nm = f.id if isinstance(f, ast.Name) else (f.attr if isinstance(f, ast.Attribute) else '')
+            calls.add(nm)
+            if nm == 'open':
+                mode = ''
+                if len(node.args) > 1 and isinstance(node.args[1], ast.Constant):
+                    mode = str(node.args[1].value)
+                for kw in node.keywords:
+                    if kw.arg == 'mode' and isinstance(kw.value, ast.Constant):
+                        mode = str(kw.value.value)
+                if any(c in mode for c in 'wax+'):
+                    writes = True
+                else:
+                    reads = True
+            if nm in ('write_text', 'write_bytes', 'remove', 'unlink', 'rmtree', 'rename', 'replace', 'makedirs', 'mkdir'):
+                writes = True
+            if nm in ('read_text', 'read_bytes', 'listdir', 'glob', 'walk', 'scandir'):
+                reads = True
+    out = []
+    for names, what in ACCESS_IMPORTS:
+        if any(m == n or (n.endswith('_') and m.startswith(n)) for m in mods for n in names):
+            out.append(what)
+    if 'system' in calls or 'popen' in calls:
+        if 'running other programs on the Pi' not in out:
+            out.append('running other programs on the Pi')
+    if {'exec', 'eval', 'compile', '__import__'} & calls and 'low-level or dynamically loaded code' not in out:
+        out.append('low-level or dynamically loaded code')
+    if writes:
+        out.append('writing files')
+    if reads:
+        out.append('reading files')
+    return out or ['nothing beyond plain Python']
+
+
+BOUNDARY = ('Every skill runs as the separate bob-skill user: it can only write in /var/lib/bob-skill, cannot read '
+            "Bob's settings or API key, and cannot change Bob or other skills' files. It can use the network.")
+
+
+def diff(old, new):
+    return ''.join(difflib.unified_diff((old or '').splitlines(True), new.splitlines(True), 'installed', 'new', n=3))
+
+
+def _pending_path(name):
+    _path(name)
+    return os.path.join(PENDING, name + '.json')
+
+
+def set_pending(name, code, why=''):
+    """Write the skill waiting for a yes where the settings page shows it: full code, changes, what it can reach."""
+    os.makedirs(PENDING, mode=0o750, exist_ok=True)
+    cur = _current(name)
+    old = open(cur).read() if cur else ''
+    d = {'name': name, 'code': code, 'sha': _fingerprint('create', name, code), 'replaces': bool(cur),
+         'diff': diff(old, code) if cur else '', 'access': access_report(code), 'at': time.time(), 'why': why}
+    with open(_pending_path(name) + '.tmp', 'w') as f:
+        json.dump(d, f)
+    os.replace(_pending_path(name) + '.tmp', _pending_path(name))
+    return d
+
+
+def pending():
+    out = []
+    for p in sorted(glob.glob(os.path.join(PENDING, '*.json'))):
+        try:
+            with open(p) as f:
+                d = json.load(f)
+            if time.time() - d.get('at', 0) < 86400:
+                out.append(d)
+            else:
+                os.remove(p)
+        except (OSError, ValueError):
+            pass
+    return out
+
+
+def get_pending(name):
+    try:
+        with open(_pending_path(name)) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def clear_pending(name, rejected=False):
+    """Done with the waiting skill. rejected=True (Reject on the page) also remembers that exact code as turned
+    down, so a spoken yes to it afterwards is refused."""
+    try:
+        d = get_pending(name)
+        if rejected and d:
+            open(os.path.join(PENDING, d['sha'] + '.rejected'), 'w').close()
+        os.remove(_pending_path(name))
+    except (OSError, ValueError):
+        pass
+
+
+def was_rejected(name, code):
+    return os.path.exists(os.path.join(PENDING, _fingerprint('create', name, code) + '.rejected'))
+
+
+def approve(name, sha):
+    """The settings page's Approve: installs exactly the code that was shown (sha binds the two)."""
+    d = get_pending(name)
+    if not d or d.get('sha') != sha:
+        raise ValueError('that skill is no longer waiting, or it changed since the page was opened')
+    validate(name, d['code'])
+    save(name, d['code'])
+    clear_pending(name)
+    reload_host()
+    return d
 
 
 def load_all():
@@ -159,7 +376,11 @@ def reload_host():
 
 def delete(name):
     try:
-        os.remove(_path(name))
+        cur = _current(name)
+        if not cur:
+            return False
+        _keep_version(name)                    # deleted, but its versions stay a while (Rollback brings it back)
+        os.remove(cur)
         reload_host()
         return True
     except (OSError, ValueError):
@@ -168,10 +389,20 @@ def delete(name):
 
 def source(name):
     try:
-        with open(_path(name)) as f:
+        cur = _current(name)
+        if not cur:
+            return None
+        with open(cur) as f:
             return f.read()
     except (OSError, ValueError):
         return None
+
+
+def disabled_names():
+    try:
+        return sorted(f[:-7] for f in os.listdir(SKILLS_DIR) if f.endswith('.py.off'))
+    except OSError:
+        return []
 
 
 def _fingerprint(*parts):
@@ -221,6 +452,16 @@ DECLARATIONS = [
      'parameters': {'type': 'OBJECT', 'properties': {'name': S('the skill')}, 'required': ['name']}},
     {'name': 'delete_skill', 'description': 'Remove a skill. Ask the user first; call with confirmed=true after their yes.',
      'parameters': {'type': 'OBJECT', 'properties': {'name': S('the skill'), 'confirmed': B('true after a yes')}, 'required': ['name']}},
+    {'name': 'disable_skill', 'description': 'Switch one skill off without deleting it (it stops being loaded; nothing else changes). Use when a skill misbehaves.',
+     'parameters': {'type': 'OBJECT', 'properties': {'name': S('the skill')}, 'required': ['name']}},
+    {'name': 'enable_skill', 'description': 'Switch a skill that was switched off back on.',
+     'parameters': {'type': 'OBJECT', 'properties': {'name': S('the skill')}, 'required': ['name']}},
+    {'name': 'rollback_skill', 'description': 'Put back the previous version of one skill (the last 10 are kept; a deleted skill can be brought back too). Ask first; confirmed=true after a yes.',
+     'parameters': {'type': 'OBJECT', 'properties': {'name': S('the skill'), 'confirmed': B('true after a yes')}, 'required': ['name']}},
+    {'name': 'i2c_scan', 'description': 'Find what is plugged into the I2C pins (SDA pin 3, SCL pin 5): the addresses that answer and what each probably is. Read-only. Use before writing a skill for an I2C sensor.',
+     'parameters': {'type': 'OBJECT', 'properties': {}}},
+    {'name': 'install_example_skill', 'description': 'Offer one of the ready-made example skills (with no name: list them). The best first one is room_temperature, a read-only BME280/BMP280 sensor. Goes through the same yes as create_skill.',
+     'parameters': {'type': 'OBJECT', 'properties': {'name': S('e.g. room_temperature'), 'confirmed': B('true after a yes')}}},
 ]
 
 
@@ -237,23 +478,74 @@ def _args(args_json):
 def handle(name, args):
     """Run one of the skill-building tools. Returns a result dict, or None if `name` is not one of them."""
     a = args or {}
+    if name == 'install_example_skill':
+        ex = sorted(os.path.basename(p)[:-3] for p in glob.glob(os.path.join(EXAMPLES, '*.py')))
+        want = str(a.get('name') or '').strip().lower().replace(' ', '_')
+        if not want:
+            return {'examples': ex, 'say': 'Ready-made skills: %s.' % ', '.join(e.replace('_', ' ') for e in ex)}
+        if want not in ex:
+            return {'error': 'no example called %s' % want, 'examples': ex}
+        with open(os.path.join(EXAMPLES, want + '.py')) as f:
+            return handle('create_skill', {'name': want, 'code': f.read(), 'confirmed': a.get('confirmed')})
     if name == 'create_skill':
         try:
             skill = validate(a.get('name', ''), a.get('code', ''))
         except ValueError as e:
             return {'error': str(e), 'fix': 'correct the code and call create_skill again'}
+        nm, code = skill['name'], a.get('code', '')
         props = ', '.join(skill['parameters'].get('properties', {}).keys()) or 'no settings'
-        if not a.get('confirmed') or not was_offered('create', skill['name'], a.get('code', '')):
-            offer('create', skill['name'], a.get('code', ''))
-            exists = os.path.exists(_path(skill['name']))
-            return {'needs_confirmation': True,
-                    'say': '%s a skill called %s: %s It takes %s. Shall I install it?' % (
-                        'I will replace' if exists else 'I can add', skill['name'].replace('_', ' '),
-                        skill['description'].rstrip('.') + '.', props)}
-        save(skill['name'], a['code'])
+        page_only = config.load().get('skill_approval') == 'page'
+        if not a.get('confirmed') or not was_offered('create', nm, code):
+            offer('create', nm, code)
+            d = set_pending(nm, code)
+            risky = [x for x in d['access'] if x in SENSITIVE]
+            return {'needs_confirmation': True, 'access': d['access'],
+                    'say': '%s a skill called %s: %s It takes %s.%s The full code%s and everything it can reach are on '
+                           'the settings page. %s' % (
+                        'I will replace' if d['replaces'] else 'I can add', nm.replace('_', ' '),
+                        skill['description'].rstrip('.') + '.', props,
+                        (' It uses %s.' % ' and '.join(risky)) if risky else '',
+                        ', what changed,' if d['replaces'] else '',
+                        'Approve it there.' if page_only else 'Shall I install it, or do you want to read it there first?')}
+        if page_only:
+            return {'needs_confirmation': True, 'say': 'Skills are approved on the settings page only: it is waiting there.'}
+        if was_rejected(nm, code):
+            return {'error': 'that exact skill was rejected on the settings page',
+                    'say': 'That one was turned down on the settings page, so I have not installed it.'}
+        save(nm, code)
+        clear_pending(nm)
         reload_host()
-        return {'ok': True, 'installed': skill['name'], 'next': 'try it with test_skill',
-                'say': 'Installed %s.' % skill['name'].replace('_', ' ')}
+        return {'ok': True, 'installed': nm, 'next': 'try it with test_skill',
+                'say': 'Installed %s.' % nm.replace('_', ' ')}
+    if name in ('disable_skill', 'enable_skill'):
+        on = name == 'enable_skill'
+        try:
+            ok = set_enabled(a.get('name', ''), on)
+        except ValueError as e:
+            return {'error': str(e)}
+        return {'ok': ok, 'say': ('%s is %s.' % (str(a.get('name')).replace('_', ' '), 'on' if on else 'switched off')) if ok
+                else 'There is no skill called %s.' % a.get('name')}
+    if name == 'rollback_skill':
+        nm = a.get('name', '')
+        try:
+            vs = versions(nm)
+        except ValueError as e:
+            return {'error': str(e)}
+        if not vs:
+            return {'error': 'no earlier version', 'say': 'There is no earlier version of %s.' % str(nm).replace('_', ' ')}
+        if not a.get('confirmed') or not was_offered('rollback', nm, vs[0]['id']):
+            offer('rollback', nm, vs[0]['id'])
+            return {'needs_confirmation': True, 'say': 'Put %s back to the version from %s?' % (nm.replace('_', ' '), vs[0]['when'])}
+        try:
+            v = rollback(nm, vs[0]['id'])
+        except ValueError as e:
+            return {'error': str(e)}
+        return {'ok': True, 'say': '%s is back to the version from %s.' % (nm.replace('_', ' '), v['when'])}
+    if name == 'i2c_scan':
+        try:
+            return skillhost.call({'cmd': 'i2c_scan'})
+        except (OSError, ValueError) as e:
+            return {'error': 'the skill host is not answering (%s)' % str(e)[:80]}
     if name in ('test_skill', 'run_skill'):
         try:
             return run(a.get('name', ''), _args(a.get('args_json')))
@@ -262,6 +554,7 @@ def handle(name, args):
     if name == 'list_skills':
         skills, bad = load_all()
         return {'skills': [{'name': s['name'], 'does': s['description']} for s in skills], 'broken': bad,
+                'switched_off': disabled_names(),
                 'say': ('No skills yet.' if not skills else 'I have %d: %s.' % (len(skills), ', '.join(s['name'].replace('_', ' ') for s in skills)))}
     if name == 'show_skill':
         src = source(a.get('name', ''))
@@ -270,7 +563,8 @@ def handle(name, args):
         if not a.get('confirmed') or not was_offered('delete', a.get('name', '')):
             offer('delete', a.get('name', ''))
             return {'needs_confirmation': True, 'say': 'Delete the %s skill?' % str(a.get('name', '')).replace('_', ' ')}
-        return {'ok': delete(a.get('name', '')), 'say': 'Deleted.'}
+        clear_pending(a.get('name', '')) if NAME_RE.match(str(a.get('name', ''))) else None
+        return {'ok': delete(a.get('name', '')), 'say': 'Deleted. It can still be brought back with a rollback.'}
     if name.startswith('skill_'):
         try:
             return run(name[len('skill_'):], a)

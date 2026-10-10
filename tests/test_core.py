@@ -78,7 +78,7 @@ def test_skill_validate_rejects_bad():
 def test_skill_create_needs_yes_then_runs():
     # confirmed=true on the first call is not enough: the exact code must have been offered first
     r = skills.handle('create_skill', {'name': 'greet', 'code': GOOD, 'confirmed': True})
-    assert r.get('needs_confirmation') and 'Shall I install' in r['say']
+    assert r.get('needs_confirmation') and 'Shall I install' in r['say'] and 'settings page' in r['say']
     assert not os.path.exists(os.path.join(os.environ['BOB_SKILLS'], 'greet.py'))
     r = skills.handle('create_skill', {'name': 'greet', 'code': GOOD, 'confirmed': True})
     assert r.get('needs_confirmation'), 'too soon after the offer'
@@ -319,3 +319,102 @@ def test_setup_app_leaves_kindlehub_helper_off_unless_ticked():
     assert json.loads(bob_setup.firstboot_json(bob_setup.DEMO))['kindlehub_helper'] is False
     assert json.loads(bob_setup.firstboot_json(dict(bob_setup.DEMO, kindlehub_helper=True)))['kindlehub_helper'] is True
     assert json.loads(bob_setup.firstboot_json(dict(bob_setup.DEMO, kindlehub_helper='yes')))['kindlehub_helper'] is False
+
+
+SKILL_V1 = '''SKILL = {"name": "lamp", "description": "Say which version this is.", "parameters": {"type": "OBJECT", "properties": {}}}
+
+def run():
+    return {"say": "version one"}
+'''
+SKILL_V2 = SKILL_V1.replace('version one', 'version two')
+
+
+def test_access_report_reads_the_code_not_the_summary():
+    a = skills.access_report('import urllib.request\nimport subprocess\nfrom gpiozero import LED\n'
+                             'def run():\n    open("/var/lib/bob-skill/x", "w").write("1")\n    subprocess.run(["ls"])\n')
+    assert 'the internet and your home network' in a and 'running other programs on the Pi' in a
+    assert 'GPIO pins (switching things on and off, reading buttons)' in a and 'writing files' in a
+    assert skills.access_report('def run():\n    return {"say": "hi"}\n') == ['nothing beyond plain Python']
+    assert 'low-level or dynamically loaded code' in skills.access_report('def run():\n    eval("1")\n')
+
+
+def test_settings_page_approval_shows_code_and_installs_exactly_that():
+    import importlib
+    from bob import web
+    importlib.reload(web)
+    r = skills.handle('create_skill', {'name': 'lamp', 'code': SKILL_V1})
+    assert r['needs_confirmation'] and r['access'] == ['nothing beyond plain Python']
+    p = skills.get_pending('lamp')
+    assert p['code'] == SKILL_V1 and not p['replaces']
+    html = web.pending_cards()
+    assert 'Waiting for your yes: lamp' in html and 'version one' in html and 'bob-skill user' in html
+    try:
+        skills.approve('lamp', 'not-the-shown-code')
+        assert False, 'a different sha must not install'
+    except ValueError:
+        pass
+    skills.approve('lamp', p['sha'])
+    assert skills.get_pending('lamp') is None and skills.run('lamp') == {'say': 'version one'}
+
+
+def test_rejected_on_the_page_means_a_spoken_yes_is_refused():
+    skills.handle('create_skill', {'name': 'gadget', 'code': SKILL_V1.replace('lamp', 'gadget')})
+    skills.clear_pending('gadget', rejected=True)
+    time.sleep(2.1)
+    r = skills.handle('create_skill', {'name': 'gadget', 'code': SKILL_V1.replace('lamp', 'gadget'), 'confirmed': True})
+    assert r.get('error') and 'turned down' in r['say']
+    assert not os.path.exists(os.path.join(os.environ['BOB_SKILLS'], 'gadget.py'))
+
+
+def test_page_only_approval_ignores_a_spoken_yes():
+    cfg = config.load()
+    cfg['skill_approval'] = 'page'
+    config.save(cfg)
+    try:
+        code = SKILL_V1.replace('lamp', 'pageonly')
+        skills.handle('create_skill', {'name': 'pageonly', 'code': code})
+        time.sleep(2.1)
+        r = skills.handle('create_skill', {'name': 'pageonly', 'code': code, 'confirmed': True})
+        assert r.get('needs_confirmation') and 'settings page' in r['say']
+        assert not os.path.exists(os.path.join(os.environ['BOB_SKILLS'], 'pageonly.py'))
+    finally:
+        cfg['skill_approval'] = 'voice'
+        config.save(cfg)
+
+
+def test_one_skill_can_be_switched_off_and_rolled_back_alone():
+    skills.handle('create_skill', {'name': 'lamp', 'code': SKILL_V2})
+    d = skills.get_pending('lamp')
+    assert d['replaces'] and '-    return {"say": "version one"}' in d['diff'] and '+    return {"say": "version two"}' in d['diff']
+    skills.approve('lamp', d['sha'])
+    assert skills.run('lamp') == {'say': 'version two'}
+    assert [v['code'] for v in skills.versions('lamp')][0] == SKILL_V1
+    # switched off: not loaded, not runnable, other skills untouched
+    assert skills.set_enabled('lamp', False) and not skills.is_enabled('lamp')
+    assert 'lamp' not in [s['name'] for s in skills.load_all()[0]] and 'lamp' in skills.disabled_names()
+    assert skills.run('lamp').get('error')
+    assert skills.handle('enable_skill', {'name': 'lamp'})['ok'] and skills.run('lamp') == {'say': 'version two'}
+    # rollback needs a yes, then puts version one back (and keeps version two in the history)
+    r = skills.handle('rollback_skill', {'name': 'lamp', 'confirmed': True})
+    assert r.get('needs_confirmation')
+    time.sleep(2.1)
+    r = skills.handle('rollback_skill', {'name': 'lamp', 'confirmed': True})
+    assert r['ok'] and skills.run('lamp') == {'say': 'version one'}
+    assert skills.versions('lamp')[0]['code'] == SKILL_V2
+
+
+def test_example_temperature_skill_is_valid_and_its_maths_matches_bosch():
+    path = os.path.join(ROOT, 'examples', 'skills', 'room_temperature.py')
+    code = open(path).read()
+    skills.validate('room_temperature', code)
+    assert skills.access_report(code) == ['I2C / SPI sensors and chips']
+    import importlib.util
+    import types
+    sys.modules.setdefault('smbus2', types.SimpleNamespace(SMBus=None))
+    spec = importlib.util.spec_from_file_location('room_temperature', path)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    # the worked example in Bosch's BMP280 datasheet (section 8.2): 25.08 degC, 1006.53 hPa
+    cal = {'T': (27504, 26435, -1000), 'P': (36477, -10685, 3024, 2855, 140, -7, 15500, -14600, 6000)}
+    t, p, h = m.compensate(cal, 519888, 415148)
+    assert abs(t - 25.08) < 0.01 and abs(p - 1006.53) < 0.05 and h is None, (t, p)

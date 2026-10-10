@@ -33,6 +33,7 @@ DEFAULTS = {
     'volume': 70,
     'idle_seconds': 12,                  # how long Bob waits for more before going back to sleep
     'auto_update': True,
+    'skill_approval': 'voice',            # voice: a spoken yes or the settings page; page: only Approve on the page
     'update_channel': 'stable',          # stable = tagged releases only
     'repo': 'https://github.com/arancool3000/bob-assistant',
     'web_port': 8080,

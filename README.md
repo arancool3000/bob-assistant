@@ -7,8 +7,9 @@ new — switch an LED, read a sensor, press a relay, call a web service — you 
 
 > "Hey Bob, I've connected an LED to GPIO 17. Make a skill that turns it on and off."
 
-Bob writes the skill, reads back what it will do, installs it only after you say *yes*, tests it, and from then
-on it's one of his abilities.
+Bob writes the skill, reads back what it will do, installs it only after you say *yes* (the exact code, the diff
+and what it can reach are on the settings page to read first, or to approve only there), tests it, and from then
+on it's one of his abilities. Any one skill can be switched off or rolled back on its own.
 
 - **Talks naturally** — Google's Gemini Live voice: quick, with eight voices to choose from, and he can search the web.
 - **Wakes on the Pi** — *"Hey Bob"* is heard offline; nothing leaves the Pi until then.
@@ -69,7 +70,8 @@ enter the code, choose a password and paste your Gemini key. Say "Hey Bob".
 - "What's the weather tomorrow?" · "Set a timer for 10 minutes" · "Remember the spare key is in the blue box"
 - "What's in the news?" (Bob can search the web) · "How hot is the Pi running?"
 - "I've wired a button to GPIO 27 — make a skill that tells me if it's pressed." · "Make a skill that switches the relay on GPIO 22."
-- "What skills do you have?" · "Show me the code for the desk LED skill." · "Delete the test skill."
+- "What skills do you have?" · "Switch off the desk LED skill." · "Roll back the desk LED skill." · "Delete the test skill."
+- First skill, read-only: "Find what's on I2C" · "Install the example temperature skill" (a BME280/BMP280).
 - "Goodbye" ends the conversation (or just stop talking).
 
 How skills work, with examples: [docs/SKILLS.md](docs/SKILLS.md).

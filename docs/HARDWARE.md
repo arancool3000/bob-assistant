@@ -55,9 +55,9 @@ pins are free?"* any time.
 
 | You wire | Then say |
 |---|---|
+| **Start here (read-only):** BME280 / BMP280: VIN → 3.3 V (pin 1), GND → pin 6, SDA → pin 3, SCL → pin 5 | "Find what's on I2C", then "Install the example temperature skill." |
 | LED + 330 Ω resistor: GPIO 17 (pin 11) → resistor → LED long leg; short leg → GND (pin 9) | "Make a skill to turn the LED on GPIO 17 on and off." |
 | Button: GPIO 27 (pin 13) ↔ GND (pin 14) | "Make a skill that tells me if the button on GPIO 27 is pressed." |
 | Relay module: VCC → 5 V (pin 2), GND → pin 6, IN → GPIO 22 (pin 15) | "Make a skill that switches the relay on GPIO 22." |
 | Servo: signal → GPIO 18 (pin 12), power from a separate 5 V supply, grounds joined | "Make a skill to move the servo on GPIO 18 to an angle." |
-| BME280 (I²C): VIN → 3.3 V, GND, SDA → pin 3, SCL → pin 5 *(advanced)* | First over SSH: `sudo /opt/bob-assistant/venv/bin/pip install RPi.bme280`, then "Make a skill that reads the BME280." |
 | DHT22 *(advanced)* | First over SSH: `sudo /opt/bob-assistant/venv/bin/pip install adafruit-circuitpython-dht`, then ask Bob. |

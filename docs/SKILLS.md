@@ -3,10 +3,53 @@
 A skill is one small Python file Bob writes for himself. You ask; he writes it and reads back a short summary of
 what it does; it is installed only after you say yes; then he tests it.
 
+## Your first skill: a temperature sensor (read-only)
+
+The safest first skill switches nothing: it only reads. Wire a **BME280 or BMP280** (Pi off first):
+VIN → 3.3 V (pin 1), GND → pin 6, SDA → pin 3, SCL → pin 5. Then:
+
+> **You:** Hey Bob, find what's on I2C.
+> **Bob:** Found 1: BME280 / BMP280 at 0x76.
+> **You:** Install the example temperature skill.
+> **Bob:** I can add a skill called room temperature … The full code and everything it can reach are on the
+> settings page. Shall I install it, or do you want to read it there first?
+
+That one exercises the whole path (finding the device, the code, the approval, Bob's answer, and switching it off
+or deleting it again) without moving anything. The code is in
+[examples/skills/room_temperature.py](../examples/skills/room_temperature.py).
+
+## Before you say yes: the code, not just Bob's summary
+
+Every skill Bob offers also appears at the top of the **settings page** (`http://<pi-name>.local:8080`) under
+*Waiting for your yes*, with:
+- **the exact code** that would be installed, or, when it replaces a skill, **the diff** against the installed version;
+- **what it can reach**, read from the code itself (its imports and calls): GPIO, I²C/SPI, serial, the internet and
+  your network, running other programs, writing or reading files, the camera or microphone. The sensitive ones are
+  marked *check*, and Bob also says them out loud ("It uses the internet and your home network.");
+- **Approve and install** / **Reject**. Approve installs exactly the code on the page (it is bound to it by a hash),
+  and a skill you reject there is refused even if you later say yes to it out loud.
+
+Settings → *Approving new skills* → **Only Approve on this page** turns off approval by voice entirely.
+
+What a skill can reach is a report, not a sandbox. The hard limits are the skill host's: every skill runs as the
+separate `bob-skill` user, can only write in `/var/lib/bob-skill`, cannot read Bob's settings or API key, and
+cannot change Bob's or other skills' files. It can use the network.
+
+## One bad skill: switch it off, or roll it back
+
+Each skill is managed on its own, with nothing to do with Bob's updates:
+- **Switch off / on** (settings page, or "Hey Bob, switch off the desk LED skill"): the file is kept but not loaded.
+- **Earlier versions**: whenever a skill is replaced or deleted, the old one is kept (the last 10). The skill's
+  *Code & versions* page shows each one with what changed, and **Put this version back** restores it; or say
+  "Roll back the desk LED skill". A rollback is itself kept, so it can be undone. A deleted skill can be brought back
+  the same way.
+- A skill that fails to load is listed as broken and never stops Bob or the other skills.
+
 ## A conversation
 
 > **You:** Hey Bob, I've put an LED on GPIO 17 with a resistor. Can you make a skill to switch it?
-> **Bob:** I can add a skill called desk LED: turns the LED on GPIO 17 on or off. It takes on. Shall I install it?
+> **Bob:** I can add a skill called desk LED: turns the LED on GPIO 17 on or off. It takes on. The full code and
+> everything it can reach are on the settings page. Shall I install it, or do you want to read it there first?
 > **You:** Yes.
 > **Bob:** Installed desk LED. Trying it now. Is it on?
 > **You:** Yep!

@@ -80,6 +80,39 @@ def _num(v, lo, hi, default):
         return default
 
 
+def _diff_html(d):
+    rows = []
+    for line in d.splitlines():
+        col = '#2e9e57' if line.startswith('+') and not line.startswith('+++') else (
+            '#c94040' if line.startswith('-') and not line.startswith('---') else '')
+        rows.append('<span style="color:%s">%s</span>' % (col, esc(line)) if col else esc(line))
+    return '<pre>%s</pre>' % '\n'.join(rows)
+
+
+def _access_html(access):
+    risky = set(skills.SENSITIVE)
+    return ('<ul style="margin:6px 0 4px 18px;padding:0">%s</ul><p class="sub">%s</p>' % (
+        ''.join('<li>%s%s</li>' % (esc(a), ' <span class="pill warn">check</span>' if a in risky else '') for a in access),
+        esc(skills.BOUNDARY)))
+
+
+def pending_cards():
+    """Skills waiting for a yes: the exact code (or what changes), what it reaches for, Approve / Reject."""
+    out = []
+    for d in skills.pending():
+        body = ('<p class="sub">What changes from the installed version:</p>' + _diff_html(d['diff'])) if d.get('diff') else (
+            '<p class="sub">The code:</p><pre>%s</pre>' % esc(d['code']))
+        out.append(
+            '<div class="card" style="border:2px solid #d9a400"><h2>Waiting for your yes: %s</h2>'
+            '<p><b>What it can reach</b> (read from the code itself):</p>%s%s'
+            '<form method="post" action="/skill-approve" style="display:inline"><input type="hidden" name="name" value="%s">'
+            '<input type="hidden" name="sha" value="%s"><button>Approve and install</button></form> '
+            '<form method="post" action="/skill-reject" style="display:inline"><input type="hidden" name="name" value="%s">'
+            '<button class="plain">Reject</button></form></div>' % (
+                esc(d['name']), _access_html(d.get('access') or []), body, esc(d['name']), esc(d['sha']), esc(d['name'])))
+    return ''.join(out)
+
+
 def service_enabled(name):
     r = subprocess.run(['systemctl', 'is-enabled', name], capture_output=True, text=True)
     return r.stdout.strip() == 'enabled'
@@ -190,8 +223,24 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/skill':
             name = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('name', [''])[0]
             src = skills.source(name)
-            return self._send(200, page(name, '<p><a class="btn plain" href="/">Back</a></p><h1>%s</h1><pre>%s</pre>' % (
-                esc(name), esc(src or 'not found'))))
+            try:
+                vs = skills.versions(name)
+            except ValueError:
+                vs = []
+            vhtml = ''.join(
+                '<details><summary>Version from %s</summary>%s<form method="post" action="/skill-rollback">'
+                '<input type="hidden" name="name" value="%s"><input type="hidden" name="version" value="%s">'
+                '<button class="plain">Put this version back</button></form></details>' % (
+                    esc(v['when']), _diff_html(skills.diff(v['code'], src or '')) if src else '<pre>%s</pre>' % esc(v['code']),
+                    esc(name), esc(v['id'])) for v in vs) or '<p class="sub">No earlier versions.</p>'
+            state = '' if src is None else ('' if skills.is_enabled(name) else ' <span class="pill warn">switched off</span>')
+            return self._send(200, page(name, (
+                '<p><a class="btn plain" href="/">Back</a></p><h1>%s%s</h1>'
+                '<div class="card"><h2>What it can reach</h2>%s</div>'
+                '<div class="card"><h2>Code</h2><pre>%s</pre></div>'
+                '<div class="card"><h2>Earlier versions</h2><p class="sub">Each shows what changed since it. The last %d are kept.</p>%s</div>') % (
+                esc(name), state, _access_html(skills.access_report(src)) if src else '<p class="sub">not installed</p>',
+                esc(src or 'not found'), skills.KEEP_VERSIONS, vhtml)))
         if path == '/log':
             try:
                 with open(updater.LOG) as f:
@@ -274,6 +323,7 @@ class Handler(BaseHTTPRequestHandler):
             cfg['volume'] = _num(f.get('volume'), 0, 100, cfg['volume'])
             cfg['idle_seconds'] = _num(f.get('idle_seconds'), 5, 60, cfg['idle_seconds'])
             cfg['auto_update'] = f.get('auto_update') == 'on'
+            cfg['skill_approval'] = 'page' if f.get('skill_approval') == 'page' else 'voice'
             if f.get('town', '').strip() != cfg.get('town'):
                 cfg['town'] = f.get('town', '').strip()[:100]
                 cfg.update(latitude=None, longitude=None)
@@ -297,6 +347,30 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/delete-skill':
             skills.delete(f.get('name', ''))
             return self._redirect('/')
+        if path == '/skill-approve':
+            try:
+                skills.approve(f.get('name', ''), f.get('sha', ''))
+            except ValueError as e:
+                return self._send(200, page('Bob', '<p class="warn">%s</p><p><a class="btn" href="/">Back</a></p>' % esc(e)))
+            return self._redirect('/')
+        if path == '/skill-reject':
+            try:
+                skills.clear_pending(f.get('name', ''), rejected=True)
+            except ValueError:
+                pass
+            return self._redirect('/')
+        if path == '/skill-toggle':
+            try:
+                skills.set_enabled(f.get('name', ''), f.get('on') == '1')
+            except ValueError:
+                pass
+            return self._redirect('/')
+        if path == '/skill-rollback':
+            try:
+                skills.rollback(f.get('name', ''), f.get('version') or None)
+            except ValueError as e:
+                return self._send(200, page('Bob', '<p class="warn">%s</p><p><a class="btn" href="/">Back</a></p>' % esc(e)))
+            return self._redirect('/skill?name=' + urllib.parse.quote(f.get('name', '')))
         if path == '/update':
             subprocess.Popen(['sudo', '-n', '/usr/bin/systemctl', 'start', '--no-block', 'bob-assistant-update-now.service'])
             return self._redirect('/log')
@@ -335,15 +409,22 @@ class Handler(BaseHTTPRequestHandler):
         state_txt = {'asleep': 'Listening for "%s"' % (active_phrase or cfg['wake_phrase']), 'listening': 'In a conversation',
                      'speaking': 'Speaking', 'working': 'Using a tool', 'needs_setup': 'Needs your Gemini key'}.get(st, st)
         voice_opts = ''.join('<option%s>%s</option>' % (' selected' if v == cfg['voice'] else '', v) for v in VOICES)
-        skills_html = ''.join('<div class="row"><span><b>%s</b><br><span class="sub">%s</span></span><span><a class="btn plain" href="/skill?name=%s">Code</a> '
-                              '<form method="post" action="/delete-skill" style="display:inline" onsubmit="return confirm(\'Delete %s?\')">'
-                              '<input type="hidden" name="name" value="%s"><button class="bad">Delete</button></form></span></div>'
-                              % (esc(s['name']), esc(s['description']), esc(s['name']), esc(s['name']), esc(s['name'])) for s in sk) \
-            or '<p class="sub">None yet. Wire something to the Pi and say: "Hey Bob, make a skill for it."</p>'
+        def _row(n, desc, on):
+            return ('<div class="row"><span><b>%s</b>%s<br><span class="sub">%s</span></span><span><a class="btn plain" href="/skill?name=%s">Code &amp; versions</a> '
+                    '<form method="post" action="/skill-toggle" style="display:inline"><input type="hidden" name="name" value="%s">'
+                    '<input type="hidden" name="on" value="%s"><button class="plain">%s</button></form> '
+                    '<form method="post" action="/delete-skill" style="display:inline" onsubmit="return confirm(\'Delete %s?\')">'
+                    '<input type="hidden" name="name" value="%s"><button class="bad">Delete</button></form></span></div>') % (
+                esc(n), '' if on else ' <span class="pill warn">off</span>', esc(desc), esc(n), esc(n), '0' if on else '1',
+                'Switch off' if on else 'Switch on', esc(n), esc(n))
+        skills_html = ''.join(_row(s['name'], s['description'], True) for s in sk) + \
+            ''.join(_row(n, 'switched off: not loaded until you switch it on', False) for n in skills.disabled_names())
+        skills_html = skills_html or '<p class="sub">None yet. Wire something to the Pi and say: "Hey Bob, make a skill for it." A good first one: "Hey Bob, install the example temperature skill."</p>'
         if bad:
             skills_html += ''.join('<p class="warn">%s is broken: %s</p>' % (esc(b['name']), esc(b['problem'])) for b in bad)
         return page('Bob', (
             '<h1><span class="face"><i></i><i></i></span>%s</h1><p class="sub">%s · version %s</p>'
+            '%s'
             '<div class="card"><h2>Status</h2>'
             '<div class="row"><span>Bob</span><span class="pill %s">%s</span></div>'
             '<div class="row"><span>Gemini key</span><span class="pill %s">%s</span></div>'
@@ -362,6 +443,8 @@ class Handler(BaseHTTPRequestHandler):
             '<label>Speaker device (from aplay -L)</label><input name="speaker_device" value="%s">'
             '<label>New Gemini API key (leave empty to keep the current one)</label><input name="api_key" autocomplete="off">'
             '<label><input type="checkbox" name="auto_update" style="width:auto" %s> Install updates automatically</label>'
+            '<label>Approving new skills</label><select name="skill_approval"><option value="voice"%s>A spoken yes, or Approve on this page</option>'
+            '<option value="page"%s>Only Approve on this page (after reading the code)</option></select>'
             '<p><button>Save</button></p></form>'
             '<div class="card"><h2>Skills Bob has made</h2>%s</div>'
             '%s'
@@ -370,13 +453,14 @@ class Handler(BaseHTTPRequestHandler):
             '<form method="post" action="/password" class="card"><h2>Change this page\'s password</h2><label>Current password</label><input type="password" name="current">'
             '<label>New password</label><input type="password" name="password" minlength="6">'
             '<p><button class="plain">Change</button></p></form>') % (
-                esc(cfg['name']), esc(pi_st.get('ip') or ''), esc(pi_st.get('version', '?')),
+                esc(cfg['name']), esc(pi_st.get('ip') or ''), esc(pi_st.get('version', '?')), pending_cards(),
                 'ok' if st in ('asleep', 'listening', 'speaking', 'working') else 'warn', esc(state_txt),
                 'ok' if sec.get('gemini_api_key') else 'warn', 'set' if sec.get('gemini_api_key') else 'missing',
                 esc(pi_st.get('cpu_temp_c', '?')), esc(pi_st.get('disk_free_gb', '?')), esc(service_active('bob-assistant')),
                 esc(cfg['name']), esc(cfg['wake_phrase']), esc(cfg['wake_sensitivity']), esc(cfg['wake_sensitivity']), voice_opts,
                 esc(cfg['personality']), esc(cfg['town']), esc(cfg['volume']), esc(cfg['idle_seconds']), esc(cfg['language']),
                 esc(cfg['mic_device']), esc(cfg['speaker_device']), 'checked' if cfg.get('auto_update') else '',
+                '' if cfg.get('skill_approval') == 'page' else ' selected', ' selected' if cfg.get('skill_approval') == 'page' else '',
                 skills_html, helper_card()))
 
 

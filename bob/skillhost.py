@@ -105,6 +105,9 @@ def _serve_one(conn, skills_dir):
         if req.get('cmd') == 'ping':
             conn.sendall(b'{"ok": true}\n')
             return
+        if req.get('cmd') == 'i2c_scan':                 # device discovery: this user is in the i2c group, Bob is not
+            conn.sendall((json.dumps(i2c_scan(req.get('bus', 1)), default=str) + '\n').encode())
+            return
         if req.get('cmd') == 'reload':
             conn.sendall(b'{"ok": true}\n')
             _restart()
@@ -116,6 +119,35 @@ def _serve_one(conn, skills_dir):
         else:
             res = run_skill(path, req.get('args') if isinstance(req.get('args'), dict) else {})
         conn.sendall((json.dumps(res, default=str) + '\n').encode())
+
+
+KNOWN_I2C = {0x76: 'BME280 / BMP280 (temperature, pressure, humidity)', 0x77: 'BME280 / BMP280 / BMP180',
+             0x38: 'AHT10 / AHT20 (temperature, humidity)', 0x44: 'SHT3x (temperature, humidity)',
+             0x48: 'TMP102 / ADS1115 / PCF8591', 0x18: 'MCP9808 (temperature)', 0x40: 'HTU21D / SI7021 / INA219',
+             0x23: 'BH1750 (light)', 0x29: 'VL53L0X (distance) / TSL2591 (light)', 0x3C: 'SSD1306 OLED screen',
+             0x27: 'LCD backpack (PCF8574)', 0x68: 'DS3231 clock / MPU6050 motion', 0x5A: 'MLX90614 (infrared temperature)'}
+
+
+def i2c_scan(bus=1):
+    """Which I2C addresses answer, with a guess at what each is. Read-only: one quick read per address."""
+    try:
+        from smbus2 import SMBus
+    except ImportError:
+        return {'error': 'smbus2 is not installed'}
+    found = []
+    try:
+        with SMBus(int(bus)) as b:
+            for addr in range(0x03, 0x78):
+                try:
+                    b.read_byte(addr)
+                except OSError:
+                    continue
+                found.append({'address': '0x%02X' % addr, 'maybe': KNOWN_I2C.get(addr, 'unknown device')})
+    except (OSError, ValueError) as e:
+        return {'error': 'I2C bus %s is not available (%s): is I2C switched on, and has the Pi been rebooted since?' % (bus, e)}
+    return {'bus': int(bus), 'devices': found,
+            'say': ('Nothing answered on the I2C bus: check SDA to pin 3, SCL to pin 5, power and ground.' if not found else
+                    'Found %d: %s.' % (len(found), '; '.join('%s at %s' % (d['maybe'].split(' (')[0], d['address']) for d in found)))}
 
 
 def serve(skills_dir, sock_path=SOCK, ready=None):
