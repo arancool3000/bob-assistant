@@ -1,7 +1,7 @@
 #!/bin/bash
-# Bob installer for Raspberry Pi OS (64-bit, Bookworm or newer).
+# Kevin installer for Raspberry Pi OS (64-bit, Bookworm or newer).
 #
-#   curl -fsSL https://raw.githubusercontent.com/arancool3000/bob-assistant/main/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/arancool3000/kevin-assistant/main/install.sh | sudo bash
 #
 # Options:
 #   --config FILE   a first-boot settings file (written by the Windows setup app): API key, password, name...
@@ -12,7 +12,7 @@
 # Safe to run again: it updates what is there and keeps your settings and skills.
 set -euo pipefail
 
-REPO="https://github.com/arancool3000/bob-assistant"
+REPO="https://github.com/arancool3000/kevin-assistant"
 HOME_DIR=/opt/bob-assistant
 STATE=/var/lib/bob-assistant
 SKILLS=/var/lib/bob-assistant-skills
@@ -38,7 +38,7 @@ done
 
 say() { printf '\n\033[1;35m== %s\033[0m\n' "$*"; }
 [ "$(id -u)" -eq 0 ] || { echo "Run me with sudo."; exit 1; }
-[ "$(uname -m)" = "aarch64" ] || echo "Warning: this is $(uname -m); Bob is tested on 64-bit Raspberry Pi OS (aarch64)."
+[ "$(uname -m)" = "aarch64" ] || echo "Warning: this is $(uname -m); Kevin is tested on 64-bit Raspberry Pi OS (aarch64)."
 export DEBIAN_FRONTEND=noninteractive
 APT="apt-get -o DPkg::Lock::Timeout=300 -qq"
 
@@ -62,10 +62,14 @@ id "$SKILL_USER" >/dev/null 2>&1 || useradd --system --home-dir "$SKILL_DATA" --
 id "$HELPER_USER" >/dev/null 2>&1 || useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin "$HELPER_USER"
 getent group audio >/dev/null && usermod -aG audio "$USER_NAME"
 for g in gpio i2c spi dialout video; do getent group "$g" >/dev/null && usermod -aG "$g" "$SKILL_USER"; done
-usermod -aG "$SKILL_USER" "$USER_NAME"                       # Bob may talk to the skill host's socket
+usermod -aG "$SKILL_USER" "$USER_NAME"                       # Kevin may talk to the skill host's socket
+
+# The project was renamed from Bob to Kevin (10 Oct 2026; IBM's assistant is called Bob). GitHub redirects the old
+# address, but point existing copies at the new one too.
+if [ -d "$HOME_DIR/.git" ]; then git -C "$HOME_DIR" remote set-url origin "$REPO" || true; fi
 
 if [ "$UPGRADE" -eq 0 ]; then
-  say "Getting Bob"
+  say "Getting Kevin"
   if [ -d "$HOME_DIR/.git" ]; then
     git -C "$HOME_DIR" fetch --tags --quiet origin
   else
@@ -88,7 +92,7 @@ say "Python environment"
 
 say "Folders"
 install -d -m 750 -o "$USER_NAME" -g "$USER_NAME" "$STATE" "$ETC"
-install -d -m 2750 -o "$USER_NAME" -g "$SKILL_USER" "$SKILLS"          # Bob writes skills, the host reads them
+install -d -m 2750 -o "$USER_NAME" -g "$SKILL_USER" "$SKILLS"          # Kevin writes skills, the host reads them
 install -d -m 750 -o "$SKILL_USER" -g "$SKILL_USER" "$SKILL_DATA"
 install -d -m 755 -o root -g root "$UPD"                                # the updater's own, root only
 
@@ -104,7 +108,7 @@ fi
 
 say "Sound"
 # The Pi 5 has no headphone socket: use the first USB sound device (a USB speakerphone is easiest). Only a file
-# Bob wrote is ever replaced; delete /etc/asound.conf's first line to keep your own.
+# Kevin wrote is ever replaced; delete /etc/asound.conf's first line to keep your own.
 MARK="# written by bob-assistant install.sh"
 USB_ID=""
 for d in /proc/asound/card*; do
@@ -122,7 +126,7 @@ elif [ -z "$USB_ID" ]; then
 fi
 
 say "Settings"
-# Run as Bob's own user, so nothing in his folders can trick root into writing elsewhere.
+# Run as Kevin's own user, so nothing in his folders can trick root into writing elsewhere.
 if [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
   install -m 600 -o "$USER_NAME" -g "$USER_NAME" "$CONFIG_FILE" "$STATE/.firstboot.json"
   shred -u "$CONFIG_FILE" 2>/dev/null || rm -f "$CONFIG_FILE"        # it held the API key and passwords in plain text
@@ -149,7 +153,7 @@ if os.path.exists(first_path):
         sec['gemini_api_key'] = first['gemini_api_key'].strip()
     if first.get('web_password'):
         sec['web_password'] = config.hash_password(first['web_password'])
-    if first.get('kindlehub_helper') is True:            # "Help run KindleHub", ticked in Bob Setup (off by default)
+    if first.get('kindlehub_helper') is True:            # "Help run KindleHub", ticked in Kevin Setup (off by default)
         open(os.path.join(config.STATE, '.helper-on'), 'w').close()
     os.remove(first_path)
 if cfg.get('town') and cfg.get('latitude') is None:
@@ -179,7 +183,7 @@ fi
 say "Services"
 SUDOERS_TMP=$(mktemp)
 cat > "$SUDOERS_TMP" <<EOF
-# the settings page may restart Bob and start an update check, nothing else
+# the settings page may restart Kevin and start an update check, nothing else
 # and switch "Help run KindleHub" on or off
 $USER_NAME ALL=(root) NOPASSWD: /usr/bin/systemctl restart bob-assistant, /usr/bin/systemctl start --no-block bob-assistant-update-now.service, /usr/bin/systemctl enable --now bob-assistant-helper.service, /usr/bin/systemctl disable --now bob-assistant-helper.service
 EOF
@@ -193,7 +197,7 @@ if [ "$UPGRADE" -eq 0 ]; then
   systemctl restart bob-assistant-skills.service bob-assistant-web.service bob-assistant.service
   systemctl start bob-assistant-update.timer
 fi
-# "Help run KindleHub" is never switched on here unless the owner ticked it in Bob Setup; it is off by default
+# "Help run KindleHub" is never switched on here unless the owner ticked it in Kevin Setup; it is off by default
 # and an upgrade leaves it exactly as it was.
 if [ -f "$STATE/.helper-on" ]; then
   rm -f "$STATE/.helper-on"
@@ -203,8 +207,8 @@ fi
 
 # The setup app's first-boot files on the SD card held passwords and the key: wipe them now they have been used.
 BOOT=/boot/firmware; [ -d "$BOOT" ] || BOOT=/boot
-if [ -f "$BOOT/user-data" ] && grep -q "written by Bob Setup" "$BOOT/user-data"; then
-  printf '#cloud-config\n# Bob Setup: used on first boot and cleared (the settings now live on the Pi itself)\n' > "$BOOT/user-data"
+if [ -f "$BOOT/user-data" ] && grep -qE "written by (Kevin|Bob) Setup" "$BOOT/user-data"; then      # cards made before the rename say Bob
+  printf '#cloud-config\n# Kevin Setup: used on first boot and cleared (the settings now live on the Pi itself)\n' > "$BOOT/user-data"
   printf 'network:\n  version: 2\n' > "$BOOT/network-config"
   rm -f "$BOOT/user-data.orig" "$BOOT/network-config.orig" "$BOOT/meta-data.orig"
 fi
@@ -212,7 +216,7 @@ fi
 IP=$(hostname -I | awk '{print $1}')
 say "Done"
 if [ "$UPGRADE" -eq 0 ]; then
-  echo "Bob is running. Say \"hey bob\"."
+  echo "Kevin is running. Say \"hey kevin\"."
   echo "Settings page: http://$(hostname).local:8080  (or http://$IP:8080)"
   if [ -n "$SETUP_CODE" ]; then echo "Setup code for the settings page: $SETUP_CODE"; fi
   echo "Updates install themselves from new releases; turn that off on the settings page."

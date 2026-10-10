@@ -3,7 +3,7 @@
   Mic      16 kHz mono 16-bit, what both the wake word and Gemini Live want
   Speaker  24 kHz mono 16-bit, what Gemini Live sends back
 
-Bob is half-duplex: while he is speaking the microphone stream is still read (so it never backs up) but not sent
+Kevin is half-duplex: while he is speaking the microphone stream is still read (so it never backs up) but not sent
 anywhere, which stops him from hearing himself on a speaker that sits next to the mic.
 """
 import math

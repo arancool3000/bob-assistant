@@ -5,10 +5,10 @@ Only tagged releases (v1.2.3) are installed, never work in progress. The steps:
   1. fetch the tags from the project's repository; a tag that was moved to different code is refused
   2. if a newer release exists (and has not failed here before): check it out and run `install.sh --upgrade`,
      which brings the services, permissions, packages and Python requirements in line with that release
-  3. restart Bob and check he stays up
+  3. restart Kevin and check he stays up
   4. if he does not, go back to the version that worked, upgrade back, restart, and remember the bad release
 
-Its own files live in /var/lib/bob-assistant-update (root only), so nothing Bob or a skill can write is ever
+Its own files live in /var/lib/bob-assistant-update (root only), so nothing Kevin or a skill can write is ever
 written to by root.
 
 Run by hand:  sudo /opt/bob-assistant/venv/bin/python -m bob.updater [--force]
@@ -24,7 +24,7 @@ HOME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPD = os.environ.get('BOB_UPDATE_STATE', '/var/lib/bob-assistant-update')
 LOG = os.path.join(UPD, 'update.log')
 FAILED = os.path.join(UPD, 'failed.json')
-NOTICE = os.path.join(UPD, 'updated.json')          # readable by Bob: "you were just updated to ..."
+NOTICE = os.path.join(UPD, 'updated.json')          # readable by Kevin: "you were just updated to ..."
 SERVICES = ('bob-assistant-skills', 'bob-assistant', 'bob-assistant-web')
 TAG_RE = re.compile(r'^v(\d+)\.(\d+)\.(\d+)$')
 
@@ -148,7 +148,7 @@ def check(force=False):
         _upgrade()
         _restart()
         if not _healthy():
-            raise RuntimeError('Bob did not start on %s' % tag)
+            raise RuntimeError('Kevin did not start on %s' % tag)
     except Exception as e:
         log('update failed (%s): going back' % str(e)[:200])
         git('checkout', '--quiet', '--force', head, check=False)

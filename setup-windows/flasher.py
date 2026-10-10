@@ -81,7 +81,7 @@ def latest_os():
 def http_opener(url):
     """open(offset) -> a readable response starting at `offset` bytes (to carry on after a dropped connection)."""
     def open_at(offset):
-        req = urllib.request.Request(url, headers={'User-Agent': 'Bob-Setup'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'Kevin-Setup'})
         if offset:
             req.add_header('Range', 'bytes=%d-' % offset)
         r = urllib.request.urlopen(req, timeout=30)
@@ -267,7 +267,7 @@ class DiskTarget:
         GENERIC_RW, SHARE_RW, OPEN_EXISTING, WRITE_THROUGH = 0xC0000000, 3, 3, 0x80000000
         h = k.CreateFileW(r'\\.\PhysicalDrive%d' % int(number), GENERIC_RW, SHARE_RW, None, OPEN_EXISTING, WRITE_THROUGH, None)
         if not h or h == wintypes.HANDLE(-1).value:
-            raise OSError('could not open the card (error %d): run Bob Setup as administrator' % ctypes.get_last_error())
+            raise OSError('could not open the card (error %d): run Kevin Setup as administrator' % ctypes.get_last_error())
         self.h = h
 
     def _seek(self, offset):

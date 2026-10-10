@@ -1,5 +1,5 @@
 [Unit]
-Description=Bob automatic update (installs new tagged releases, rolls back if Bob will not start)
+Description=Kevin automatic update (installs new tagged releases, rolls back if Kevin will not start)
 After=network-online.target
 Wants=network-online.target
 

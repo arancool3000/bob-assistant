@@ -1,6 +1,6 @@
-"""Skills: abilities Bob writes for himself when you ask by voice.
+"""Skills: abilities Kevin writes for himself when you ask by voice.
 
-"Hey Bob, I've wired an LED to GPIO 17 -- make a skill that turns it on and off." Bob writes a small Python file,
+"Hey Kevin, I've wired an LED to GPIO 17 -- make a skill that turns it on and off." Kevin writes a small Python file,
 reads back what it will do, and only installs it after you say yes. Each skill is one file in
 /var/lib/bob-assistant-skills/ that looks like this:
 
@@ -16,7 +16,7 @@ reads back what it will do, and only installs it after you say yes. Each skill i
         return {"say": "LED on."}
 
 Skills run in the skill host (skillhost.py): one long-running process as the separate `bob-skill` user, so a
-skill's objects stay alive between calls (an LED you switch on stays on) and a skill can never read Bob's API key,
+skill's objects stay alive between calls (an LED you switch on stays on) and a skill can never read Kevin's API key,
 change his files or stop him. Installing or deleting a skill needs a yes from you: the tool refuses
 confirmed=true unless that exact code was offered for confirmation first. New skills can be used straight away
 through run_skill, and appear as tools of their own from the next conversation.
@@ -68,7 +68,7 @@ def _check_schema(props):
 
 
 def validate(name, code):
-    """Return the SKILL dict, or raise ValueError with a reason Bob can read out and fix."""
+    """Return the SKILL dict, or raise ValueError with a reason Kevin can read out and fix."""
     if not NAME_RE.match(name or ''):
         raise ValueError('a skill name is lower case letters, digits and _ (e.g. desk_led)')
     if name in RESERVED:
@@ -247,7 +247,7 @@ def access_report(code):
 
 
 BOUNDARY = ('Every skill runs as the separate bob-skill user: it can only write in /var/lib/bob-skill, cannot read '
-            "Bob's settings or API key, and cannot change Bob or other skills' files. It can use the network.")
+            "Kevin's settings or API key, and cannot change Kevin or other skills' files. It can use the network.")
 
 
 def diff(old, new):
@@ -335,7 +335,7 @@ def load_all():
         try:
             with open(os.path.join(SKILLS_DIR, fn)) as f:
                 out.append(validate(name, f.read()))
-        except Exception as e:                    # one broken file never stops Bob
+        except Exception as e:                    # one broken file never stops Kevin
             bad.append({'name': name, 'problem': str(e)[:200]})
     return out, bad
 
@@ -423,7 +423,7 @@ def was_offered(*parts, min_gap=2.0):
     return bool(t and min_gap <= time.time() - t <= 900)
 
 
-# ---- the tools Bob uses to build skills -------------------------------------------------------------
+# ---- the tools Kevin uses to build skills -------------------------------------------------------------
 
 S = lambda d: {'type': 'STRING', 'description': d}      # noqa: E731
 B = lambda d: {'type': 'BOOLEAN', 'description': d}     # noqa: E731

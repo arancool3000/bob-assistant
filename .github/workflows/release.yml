@@ -29,20 +29,20 @@ jobs:
       - name: build installs this release's install.sh
         shell: pwsh
         run: Set-Content -Path setup-windows/_version.py -Value "TAG = '$env:GITHUB_REF_NAME'"
-      - run: pyinstaller --onefile --windowed --uac-admin --name Bob-Setup --paths setup-windows setup-windows/bob_setup.py
+      - run: pyinstaller --onefile --windowed --uac-admin --name Kevin-Setup --paths setup-windows setup-windows/bob_setup.py
       - name: self-test the built app
         shell: pwsh
         run: |
-          $p = Start-Process dist\Bob-Setup.exe -ArgumentList '--selftest' -Wait -PassThru
+          $p = Start-Process dist\Kevin-Setup.exe -ArgumentList '--selftest' -Wait -PassThru
           Get-Content dist\selftest.txt
           if ($p.ExitCode -ne 0) { exit 1 }
       - name: checksum
         shell: pwsh
-        run: (Get-FileHash dist\Bob-Setup.exe -Algorithm SHA256).Hash + "  Bob-Setup.exe" | Out-File -Encoding ascii dist\Bob-Setup.exe.sha256
+        run: (Get-FileHash dist\Kevin-Setup.exe -Algorithm SHA256).Hash + "  Kevin-Setup.exe" | Out-File -Encoding ascii dist\Kevin-Setup.exe.sha256
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/Bob-Setup.exe
-            dist/Bob-Setup.exe.sha256
+            dist/Kevin-Setup.exe
+            dist/Kevin-Setup.exe.sha256
           prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true

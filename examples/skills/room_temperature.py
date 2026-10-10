@@ -2,8 +2,8 @@
 
 Read-only: it never switches anything, so it is the safest first skill. Wiring (Pi off first):
   VIN -> 3.3 V (pin 1)   GND -> GND (pin 6)   SDA -> GPIO 2 (pin 3)   SCL -> GPIO 3 (pin 5)
-Then: "Hey Bob, find what's on I2C" (it should say a BME280 / BMP280 at 0x76 or 0x77),
-and:  "Hey Bob, install the example temperature skill."  Ask "how warm is it?" afterwards.
+Then: "Hey Kevin, find what's on I2C" (it should say a BME280 / BMP280 at 0x76 or 0x77),
+and:  "Hey Kevin, install the example temperature skill."  Ask "how warm is it?" afterwards.
 Pure smbus2: no extra library, the Bosch formulas are below.
 """
 import struct

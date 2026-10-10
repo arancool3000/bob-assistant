@@ -1,6 +1,6 @@
 """The settings page (service bob-assistant-web): http://<pi-name>.local:8080 on your home network.
 
-Status, the Gemini key, wake phrase and sensitivity, voice, town, volume, the skills Bob has made (read or
+Status, the Gemini key, wake phrase and sensitivity, voice, town, volume, the skills Kevin has made (read or
 delete them), updates. Signed in with the password chosen at setup; nothing here works from outside your
 network unless you forward the port yourself (don't).
 """
@@ -124,8 +124,8 @@ def helper_card():
     st = helper.read_status() if on else {}
     what = ('<p class="sub">Lend this Pi\'s spare time to KindleHub (free games for e-readers): it plays chess moves '
             'for KindleHub\'s computer opponent, and nothing else. One move at a time, at most half of one CPU core, '
-            'lowest priority, so Bob always comes first. It connects out and opens no ports, and runs as its own user '
-            'with no access to Bob\'s key or your files.</p>'
+            'lowest priority, so Kevin always comes first. It connects out and opens no ports, and runs as its own user '
+            'with no access to Kevin\'s key or your files.</p>'
             '<p class="sub">Perk: link this Pi to your KindleHub account. While it has played moves for KindleHub in '
             '10 different hours of the last week, your account gets KindleTube and KindlePoki as on the Plus plan.</p>')
     if not on:
@@ -317,7 +317,7 @@ class Handler(BaseHTTPRequestHandler):
                 phrase = ' '.join(f['wake_phrase'].lower().replace(',', ' ').split())
                 why = wake.check_phrase(phrase, VOSK_MODEL)
                 if why:
-                    return self._send(200, page('Bob', '<p class="warn">Wake phrase not changed: %s.</p><p><a class="btn" href="/">Back</a></p>' % esc(why)))
+                    return self._send(200, page('Kevin', '<p class="warn">Wake phrase not changed: %s.</p><p><a class="btn" href="/">Back</a></p>' % esc(why)))
                 cfg['wake_phrase'] = phrase
             cfg['wake_sensitivity'] = _num(f.get('wake_sensitivity'), 20, 90, cfg['wake_sensitivity'])
             cfg['volume'] = _num(f.get('volume'), 0, 100, cfg['volume'])
@@ -351,7 +351,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 skills.approve(f.get('name', ''), f.get('sha', ''))
             except ValueError as e:
-                return self._send(200, page('Bob', '<p class="warn">%s</p><p><a class="btn" href="/">Back</a></p>' % esc(e)))
+                return self._send(200, page('Kevin', '<p class="warn">%s</p><p><a class="btn" href="/">Back</a></p>' % esc(e)))
             return self._redirect('/')
         if path == '/skill-reject':
             try:
@@ -369,14 +369,14 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 skills.rollback(f.get('name', ''), f.get('version') or None)
             except ValueError as e:
-                return self._send(200, page('Bob', '<p class="warn">%s</p><p><a class="btn" href="/">Back</a></p>' % esc(e)))
+                return self._send(200, page('Kevin', '<p class="warn">%s</p><p><a class="btn" href="/">Back</a></p>' % esc(e)))
             return self._redirect('/skill?name=' + urllib.parse.quote(f.get('name', '')))
         if path == '/update':
             subprocess.Popen(['sudo', '-n', '/usr/bin/systemctl', 'start', '--no-block', 'bob-assistant-update-now.service'])
             return self._redirect('/log')
         if path == '/password':
             if not config.check_password(f.get('current', ''), sec.get('web_password', '')):
-                return self._send(200, page('Bob', '<p class="warn">Current password is not right.</p><p><a class="btn" href="/">Back</a></p>'))
+                return self._send(200, page('Kevin', '<p class="warn">Current password is not right.</p><p><a class="btn" href="/">Back</a></p>'))
             if len(f.get('password', '')) >= 6:
                 sec['web_password'] = config.hash_password(f['password'])
                 config.save_secrets(sec)
@@ -386,14 +386,14 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- views --
     def first_run(self, err=''):
-        return page('Set up Bob', '<h1><span class="face"><i></i><i></i></span>Set up Bob</h1><p class="sub">Choose a password for this page%s.</p>'
+        return page('Set up Kevin', '<h1><span class="face"><i></i><i></i></span>Set up Kevin</h1><p class="sub">Choose a password for this page%s.</p>'
                     '<form method="post" action="/first-run" class="card"><label>Setup code (shown at the end of the install)</label><input name="code" required autocomplete="off">'
                     '<label>Password for this page</label><input type="password" name="password" required minlength="6">'
                     '<label>Gemini API key (from aistudio.google.com/apikey)</label><input name="api_key" autocomplete="off">'
                     '<p class="warn">%s</p><button>Save</button></form>' % (', and add your Gemini key if setup did not', esc(err)))
 
     def login(self, err=''):
-        return page('Bob', '<h1><span class="face"><i></i><i></i></span>Bob</h1><form method="post" action="/login" class="card">'
+        return page('Kevin', '<h1><span class="face"><i></i><i></i></span>Kevin</h1><form method="post" action="/login" class="card">'
                     '<label>Password</label><input type="password" name="password" autofocus><p class="warn">%s</p>'
                     '<button>Sign in</button></form>' % esc(err))
 
@@ -419,14 +419,14 @@ class Handler(BaseHTTPRequestHandler):
                 'Switch off' if on else 'Switch on', esc(n), esc(n))
         skills_html = ''.join(_row(s['name'], s['description'], True) for s in sk) + \
             ''.join(_row(n, 'switched off: not loaded until you switch it on', False) for n in skills.disabled_names())
-        skills_html = skills_html or '<p class="sub">None yet. Wire something to the Pi and say: "Hey Bob, make a skill for it." A good first one: "Hey Bob, install the example temperature skill."</p>'
+        skills_html = skills_html or '<p class="sub">None yet. Wire something to the Pi and say: "Hey Kevin, make a skill for it." A good first one: "Hey Kevin, install the example temperature skill."</p>'
         if bad:
             skills_html += ''.join('<p class="warn">%s is broken: %s</p>' % (esc(b['name']), esc(b['problem'])) for b in bad)
-        return page('Bob', (
+        return page('Kevin', (
             '<h1><span class="face"><i></i><i></i></span>%s</h1><p class="sub">%s · version %s</p>'
             '%s'
             '<div class="card"><h2>Status</h2>'
-            '<div class="row"><span>Bob</span><span class="pill %s">%s</span></div>'
+            '<div class="row"><span>Kevin</span><span class="pill %s">%s</span></div>'
             '<div class="row"><span>Gemini key</span><span class="pill %s">%s</span></div>'
             '<div class="row"><span>Pi</span><span class="sub">%s°C · %s GB free · %s</span></div></div>'
             '<form method="post" action="/settings" class="card"><h2>Settings</h2>'
@@ -437,7 +437,7 @@ class Handler(BaseHTTPRequestHandler):
             '<label>Personality</label><input name="personality" value="%s">'
             '<label>Town (for the weather)</label><input name="town" value="%s">'
             '<label>Volume</label><input type="range" name="volume" min="0" max="100" value="%s">'
-            '<label>Seconds Bob waits for you before going back to sleep</label><input type="number" name="idle_seconds" min="5" max="60" value="%s">'
+            '<label>Seconds Kevin waits for you before going back to sleep</label><input type="number" name="idle_seconds" min="5" max="60" value="%s">'
             '<label>Language (e.g. en-GB, en-US)</label><input name="language" value="%s">'
             '<label>Microphone device (from arecord -L; "default" is the USB device the installer chose)</label><input name="mic_device" value="%s">'
             '<label>Speaker device (from aplay -L)</label><input name="speaker_device" value="%s">'
@@ -446,7 +446,7 @@ class Handler(BaseHTTPRequestHandler):
             '<label>Approving new skills</label><select name="skill_approval"><option value="voice"%s>A spoken yes, or Approve on this page</option>'
             '<option value="page"%s>Only Approve on this page (after reading the code)</option></select>'
             '<p><button>Save</button></p></form>'
-            '<div class="card"><h2>Skills Bob has made</h2>%s</div>'
+            '<div class="card"><h2>Skills Kevin has made</h2>%s</div>'
             '%s'
             '<div class="card"><h2>Updates</h2><form method="post" action="/update" style="display:inline"><button class="plain">Check now</button></form> '
             '<a class="btn plain" href="/log">Update log</a></div>'

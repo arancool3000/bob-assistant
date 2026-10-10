@@ -1,6 +1,6 @@
-"""One conversation with Gemini Live: microphone in, Bob's voice out, tools in between.
+"""One conversation with Gemini Live: microphone in, Kevin's voice out, tools in between.
 
-Gemini's own voice detector decides when the user has finished speaking. While Bob talks the microphone is
+Gemini's own voice detector decides when the user has finished speaking. While Kevin talks the microphone is
 not sent (half-duplex), so he never answers himself. The conversation ends when the user says goodbye (the
 end_conversation tool) or after `idle_seconds` of quiet.
 """
@@ -16,7 +16,7 @@ LIVE_URL = ('wss://generativelanguage.googleapis.com/ws/'
 
 
 def system_instruction(cfg):
-    name = cfg.get('name', 'Bob')
+    name = cfg.get('name', 'Kevin')
     mem = tools.memory_lines()
     note = tools.update_notice()
     return '\n\n'.join(p for p in [
@@ -54,7 +54,7 @@ def setup_message(cfg, model, decls, instruction=None):
         },
         'systemInstruction': {'parts': [{'text': instruction or system_instruction(cfg)}]},
         'tools': [{'functionDeclarations': decls}, {'googleSearch': {}}],
-        # only so Bob knows the user is still talking (the text is never stored)
+        # only so Kevin knows the user is still talking (the text is never stored)
         'inputAudioTranscription': {},
     }}
 
@@ -122,7 +122,7 @@ async def converse(cfg, key, mic, speaker, toolbox, log=print, on_state=None):
                 await loop.run_in_executor(None, mic.start)
                 continue
             if speaker.speaking():
-                continue                         # half-duplex: never send Bob's own voice back
+                continue                         # half-duplex: never send Kevin's own voice back
             await ws.send(json.dumps({'realtimeInput': {'audio': {
                 'mimeType': 'audio/pcm;rate=%d' % audio.RATE_IN, 'data': base64.b64encode(data).decode()}}}))
 
@@ -163,7 +163,7 @@ async def converse(cfg, key, mic, speaker, toolbox, log=print, on_state=None):
             await asyncio.sleep(0.5)
             if speaker.speaking() or act['tool']:
                 continue
-            quiet_since = max(act['last'], speaker.busy_until)   # idle counts from when Bob stopped speaking
+            quiet_since = max(act['last'], speaker.busy_until)   # idle counts from when Kevin stopped speaking
             if toolbox.ended and time.time() - act['msg'] > 1.5:
                 done.set()
             elif time.time() - quiet_since > idle:

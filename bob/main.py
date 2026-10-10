@@ -1,4 +1,4 @@
-"""Bob's main loop (service bob-assistant): listen for the wake phrase on the Pi, then talk with Gemini Live.
+"""Kevin's main loop (service bob-assistant): listen for the wake phrase on the Pi, then talk with Gemini Live.
 
     python -m bob.main
 """
@@ -24,7 +24,7 @@ _PHRASE = {}
 
 
 def set_state(s, phrase=None):
-    """What Bob is doing, for the web page (asleep / listening / speaking / working / needs_setup)."""
+    """What Kevin is doing, for the web page (asleep / listening / speaking / working / needs_setup)."""
     if phrase:
         _PHRASE['p'] = phrase
     try:
@@ -64,7 +64,7 @@ def main():
     set_state('asleep')
     speaker.play(audio.tone((660, 990, 1320), 120, 0.2))      # "I'm ready" -- also how a first install says it is done
     if ww.fell_back:
-        log('the wake phrase "%s" uses words the offline recogniser does not know: using "hey bob"' % cfg.get('wake_phrase'))
+        log('the wake phrase "%s" uses words the offline recogniser does not know: using "hey kevin"' % cfg.get('wake_phrase'))
     set_state('asleep', phrase=ww.phrase)
     log('listening for "%s" (on this Pi; nothing leaves it until then)' % ww.phrase)
     failures = 0

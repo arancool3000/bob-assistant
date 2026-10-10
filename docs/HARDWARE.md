@@ -5,7 +5,7 @@
 | Model | Works? | Notes |
 |---|---|---|
 | Raspberry Pi 5, 4 GB / 8 GB | **Best** | Needs a USB sound device (no headphone socket). Use a case with a fan or heatsink: the wake word listens all the time. |
-| Raspberry Pi 5, 2 GB | Yes | Fine for Bob alone. |
+| Raspberry Pi 5, 2 GB | Yes | Fine for Kevin alone. |
 | Raspberry Pi 4, 2 GB+ | Yes | Its 3.5 mm socket can drive a powered speaker; you still need a USB microphone. |
 | Raspberry Pi 3B+ / Zero 2 W | Not supported | Too slow for the wake word and live audio together. |
 
@@ -19,7 +19,7 @@ across a room, and echo cancelling. Plug it in **before** the first start: the i
 device the default for both microphone and speaker.
 
 - Plugged it in later? Run the installer again (it keeps your settings):
-  `curl -fsSL https://raw.githubusercontent.com/arancool3000/bob-assistant/main/install.sh | sudo bash`
+  `curl -fsSL https://raw.githubusercontent.com/arancool3000/kevin-assistant/main/install.sh | sudo bash`
 - USB microphone + 3.5 mm speaker (Pi 4): on the settings page set *Speaker device* to `plughw:CARD=Headphones,DEV=0`
   and *Microphone device* to your USB mic (find names with `arecord -L` / `aplay -L` over SSH).
 - Keep your own `/etc/asound.conf`: the installer only replaces a file it wrote itself (first line
@@ -27,7 +27,7 @@ device the default for both microphone and speaker.
 
 ## Wiring things for skills
 
-Bob uses **BCM GPIO numbers** ("GPIO 17"), not physical pin numbers; the table below gives both. Ask him *"Which
+Kevin uses **BCM GPIO numbers** ("GPIO 17"), not physical pin numbers; the table below gives both. Ask him *"Which
 pins are free?"* any time.
 
 | GPIO | Physical pin | Use |
@@ -60,4 +60,4 @@ pins are free?"* any time.
 | Button: GPIO 27 (pin 13) ↔ GND (pin 14) | "Make a skill that tells me if the button on GPIO 27 is pressed." |
 | Relay module: VCC → 5 V (pin 2), GND → pin 6, IN → GPIO 22 (pin 15) | "Make a skill that switches the relay on GPIO 22." |
 | Servo: signal → GPIO 18 (pin 12), power from a separate 5 V supply, grounds joined | "Make a skill to move the servo on GPIO 18 to an angle." |
-| DHT22 *(advanced)* | First over SSH: `sudo /opt/bob-assistant/venv/bin/pip install adafruit-circuitpython-dht`, then ask Bob. |
+| DHT22 *(advanced)* | First over SSH: `sudo /opt/bob-assistant/venv/bin/pip install adafruit-circuitpython-dht`, then ask Kevin. |

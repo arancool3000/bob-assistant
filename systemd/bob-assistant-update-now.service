@@ -1,5 +1,5 @@
 [Unit]
-Description=Bob update, now (the settings page's "Check now", even if automatic updates are off)
+Description=Kevin update, now (the settings page's "Check now", even if automatic updates are off)
 After=network-online.target
 Wants=network-online.target
 

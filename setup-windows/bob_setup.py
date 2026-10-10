@@ -1,19 +1,19 @@
-"""Bob Setup for Windows.
+"""Kevin Setup for Windows.
 
-Two ways to set up a Raspberry Pi as Bob:
+Two ways to set up a Raspberry Pi as Kevin:
 
   1. Write a microSD card  (recommended, for a brand-new Pi)
      Choose the card: the app downloads Raspberry Pi OS Lite (64-bit) from raspberrypi.com, writes and checks it
-     (flasher.py), then writes your Wi-Fi, a login, SSH, and Bob's settings (Gemini key, name, town,
+     (flasher.py), then writes your Wi-Fi, a login, SSH, and Kevin's settings (Gemini key, name, town,
      settings-page password) onto it. Put the card in the Pi and power it on: it joins your Wi-Fi and installs
-     Bob by itself (10-20 minutes the first time). A card already flashed with Raspberry Pi Imager (no
+     Kevin by itself (10-20 minutes the first time). A card already flashed with Raspberry Pi Imager (no
      customisation) can have just the settings added.
 
   2. Install on a Pi that is already running
-     Give its address, user name and password; the app installs Bob over the network (SSH) and shows progress.
+     Give its address, user name and password; the app installs Kevin over the network (SSH) and shows progress.
 
 Nothing is sent anywhere except to your own Pi (the only download is the Raspberry Pi OS image). The Gemini key
-and passwords sit on the card only until first boot, when the installer moves them into a file only Bob can read
+and passwords sit on the card only until first boot, when the installer moves them into a file only Kevin can read
 and deletes the copy on the card.
 """
 import json
@@ -27,7 +27,7 @@ import webbrowser
 
 import flasher
 
-REPO = 'arancool3000/bob-assistant'
+REPO = 'arancool3000/kevin-assistant'
 try:
     from _version import TAG            # written by the release workflow: the app installs its own release
 except ImportError:
@@ -102,7 +102,7 @@ def firstboot_script(country='GB'):
     then the installer. Its log is /var/log/bob-install.log."""
     return '\n'.join([
         '#!/bin/bash',
-        '# Bob first boot: installs Bob, then switches itself off. Log: /var/log/bob-install.log',
+        '# Kevin first boot: installs Kevin, then switches itself off. Log: /var/log/bob-install.log',
         'exec >>/var/log/bob-install.log 2>&1',
         'set -o pipefail',
         'export HOME=/root DEBIAN_FRONTEND=noninteractive',
@@ -115,13 +115,13 @@ def firstboot_script(country='GB'):
         'bash /root/bob-install.sh --config /etc/bob/firstboot.json || exit 1',
         'rm -f /root/bob-install.sh',
         'systemctl disable bob-firstboot.service',
-        'echo "== Bob installed $(date)"',
+        'echo "== Kevin installed $(date)"',
         '',
     ])
 
 
 FIRSTBOOT_SERVICE = (
-    '[Unit]\nDescription=Install Bob on first boot\nAfter=network-online.target time-sync.target\nWants=network-online.target\n'
+    '[Unit]\nDescription=Install Kevin on first boot\nAfter=network-online.target time-sync.target\nWants=network-online.target\n'
     '[Service]\nType=oneshot\nExecStart=/bin/bash /usr/local/sbin/bob-firstboot.sh\nRestart=on-failure\nRestartSec=60\n'
     'TimeoutStartSec=3600\n[Install]\nWantedBy=multi-user.target\n')
 
@@ -134,7 +134,7 @@ def cloud_init_files(d):
             ['      ' + line for line in text.splitlines()]
     user_data = '\n'.join([
         '#cloud-config',
-        '# written by Bob Setup',
+        '# written by Kevin Setup',
         'hostname: %s' % d['hostname'],
         'manage_etc_hosts: true',
         'users:',
@@ -195,7 +195,7 @@ def firstrun_script(d):
           '[wifi]\nmode=infrastructure\nssid=%s\n%s[ipv4]\nmethod=auto\n[ipv6]\nmethod=auto\n') % (_nm_escape(d['wifi_ssid']), sec)
     return '\n'.join([
         '#!/bin/bash',
-        '# written by Bob Setup: runs once on first boot, then removes itself',
+        '# written by Kevin Setup: runs once on first boot, then removes itself',
         'set +e',
         'BOOT=/boot/firmware; [ -d $BOOT ] || BOOT=/boot',
         'finish() { rm -f $BOOT/firstrun.sh; sed -i "s| systemd.run.*||g" $BOOT/cmdline.txt; exit 0; }',
@@ -317,7 +317,7 @@ def prepare_card(root, d):
 
 
 def install_over_ssh(host, user, password, d, out, confirm_key=None):
-    """Install Bob on a running Pi. `out(text)` receives progress lines; `confirm_key(fingerprint)` must return
+    """Install Kevin on a running Pi. `out(text)` receives progress lines; `confirm_key(fingerprint)` must return
     True to trust a Pi seen for the first time (defaults to trusting it)."""
     import paramiko
 
@@ -374,7 +374,7 @@ def gui():
         except Exception:
             pass
     root = tk.Tk()
-    root.title('Bob Setup')
+    root.title('Kevin Setup')
     root.geometry('700x880')
     root.minsize(620, 780)
     try:
@@ -383,7 +383,7 @@ def gui():
         pass
     frm = ttk.Frame(root, padding=18)
     frm.pack(fill='both', expand=True)
-    ttk.Label(frm, text='Bob Setup', font=('Segoe UI', 20, 'bold')).pack(anchor='w')
+    ttk.Label(frm, text='Kevin Setup', font=('Segoe UI', 20, 'bold')).pack(anchor='w')
     ttk.Label(frm, text='A voice assistant for your Raspberry Pi that you build by talking to it.', foreground='#555').pack(anchor='w', pady=(0, 10))
     nb = ttk.Notebook(frm)
     nb.pack(fill='both', expand=True)
@@ -406,17 +406,17 @@ def gui():
     field(p1, 'Wi-Fi name', 'wifi_ssid', hint='Exactly as it appears on your phone (capitals matter). Not needed for option B.')
     field(p1, 'Wi-Fi password', 'wifi_password', show='•')
     field(p1, 'Wi-Fi country (two letters)', 'country', 'GB', values=COUNTRIES, editable=True)
-    field(p1, 'Gemini API key', 'gemini_api_key', show='•', hint='Free from Google AI Studio. Bob uses it to talk.')
+    field(p1, 'Gemini API key', 'gemini_api_key', show='•', hint='Free from Google AI Studio. Kevin uses it to talk.')
     ttk.Button(p1, text='Get a free Gemini key...', command=lambda: webbrowser.open(KEY_URL)).pack(anchor='w', pady=4)
-    field(p1, "Password for Bob's settings page", 'web_password', show='•')
+    field(p1, "Password for Kevin's settings page", 'web_password', show='•')
 
     p2 = ttk.Frame(nb, padding=12)
     nb.add(p2, text='2. The Pi')
-    field(p2, 'Pi name on your network', 'hostname', 'bob', hint='Settings page: http://<name>.local:8080')
+    field(p2, 'Pi name on your network', 'hostname', 'kevin', hint='Settings page: http://<name>.local:8080')
     field(p2, 'Pi user name', 'username', 'pi')
     field(p2, 'Pi password (for SSH)', 'password', show='•', hint='Option A: a new password. Option B: the one the Pi already has.')
-    field(p2, 'Assistant name', 'name', 'Bob')
-    field(p2, 'Wake phrase', 'wake_phrase', 'hey bob', hint='Common English words only (the offline recogniser must know them).')
+    field(p2, 'Assistant name', 'name', 'Kevin')
+    field(p2, 'Wake phrase', 'wake_phrase', 'hey kevin', hint='Common English words only (the offline recogniser must know them).')
     field(p2, 'Voice', 'voice', 'Charon', values=VOICES)
     field(p2, 'Your town (for the weather)', 'town', '')
     helper_on = tk.BooleanVar(value=False)                  # off by default: only the owner turns it on
@@ -424,7 +424,7 @@ def gui():
     ttk.Label(p2, text='Lends the Pi\'s spare time to KindleHub (free games for e-readers): it plays chess moves for '
                        'its computer opponent and nothing else, using at most half of one core at lowest priority. '
                        'Perk: link it to your KindleHub account for KindleTube and KindlePoki as on Plus. '
-                       'Switch it off any time on Bob\'s settings page.', foreground='#777', font=('Segoe UI', 8),
+                       'Switch it off any time on Kevin\'s settings page.', foreground='#777', font=('Segoe UI', 8),
               wraplength=600).pack(anchor='w')
 
     p3 = ttk.Frame(nb, padding=12)
@@ -464,12 +464,12 @@ def gui():
         d = data()
         errs = validator(d)
         if errs:
-            messagebox.showerror('Bob Setup', 'Please fix:\n\n- ' + '\n- '.join(errs))
+            messagebox.showerror('Kevin Setup', 'Please fix:\n\n- ' + '\n- '.join(errs))
             return None
         return d
 
     ttk.Label(p3, text='A. New Pi: write the microSD card', font=('Segoe UI', 11, 'bold')).pack(anchor='w')
-    ttk.Label(p3, text='Put the card in this PC (a USB card reader is fine) and choose it. Bob Setup downloads Raspberry '
+    ttk.Label(p3, text='Put the card in this PC (a USB card reader is fine) and choose it. Kevin Setup downloads Raspberry '
                        'Pi OS Lite (64-bit) from raspberrypi.com (about 550 MB), writes it, checks it and adds your '
                        'settings. Everything on the card is erased.', wraplength=600).pack(anchor='w')
     card = tk.StringVar()
@@ -522,7 +522,7 @@ def gui():
                 res['ok'] = True
                 top.destroy()
             else:
-                messagebox.showerror('Bob Setup', 'Type ERASE to erase the card, or press Cancel.', parent=top)
+                messagebox.showerror('Kevin Setup', 'Type ERASE to erase the card, or press Cancel.', parent=top)
         btns = ttk.Frame(top, padding=14)
         btns.pack()
         ttk.Button(btns, text='Erase and write', command=ok).pack(side='left', padx=4)
@@ -544,10 +544,10 @@ def gui():
             return
         disk = cards.get(card.get())
         if not disk:
-            messagebox.showerror('Bob Setup', 'Choose the microSD card (press Refresh after putting it in).')
+            messagebox.showerror('Kevin Setup', 'Choose the microSD card (press Refresh after putting it in).')
             return
         if not flasher.is_admin():
-            messagebox.showerror('Bob Setup', 'Writing a card needs administrator rights: close Bob Setup, right-click it '
+            messagebox.showerror('Kevin Setup', 'Writing a card needs administrator rights: close Kevin Setup, right-click it '
                                               'and choose "Run as administrator".')
             return
         if not confirm_erase(flasher.describe(disk)):
@@ -579,7 +579,7 @@ def gui():
                 out('\nDone. ' + ('The card was ejected: you can take it out.' if ejected else
                                   'In File Explorer, use "Eject" on the bootfs drive before taking the card out.'))
                 out('Put it in the Pi with the USB speakerphone plugged in, and switch on.')
-                out('Give it 10-20 minutes the first time; a rising three-note chime means Bob is ready. Then say "%s".' % d['wake_phrase'])
+                out('Give it 10-20 minutes the first time; a rising three-note chime means Kevin is ready. Then say "%s".' % d['wake_phrase'])
                 out('Settings: http://%s.local:8080 (or the Pi\'s IP address from your router).' % d['hostname'])
             except flasher.Cancelled:
                 out('Stopped. The card is blank now: write it again before using it.')
@@ -620,7 +620,7 @@ def gui():
             return
         r = drives.get(drive.get())
         if not r or not is_boot_partition(r):
-            messagebox.showerror('Bob Setup', 'Pick the SD card\'s boot drive (press Refresh if you swapped cards).')
+            messagebox.showerror('Kevin Setup', 'Pick the SD card\'s boot drive (press Refresh if you swapped cards).')
             return
         card_btn.state(['disabled'])
         try:
@@ -628,17 +628,17 @@ def gui():
                 out(line)
             out('\nDone. In Windows, use "Eject" on the bootfs drive before unplugging the card.')
             out('Put it in the Pi with the USB speakerphone plugged in, and switch on.')
-            out('Give it 10-20 minutes the first time; a rising three-note chime means Bob is ready. Then say "%s".' % d['wake_phrase'])
+            out('Give it 10-20 minutes the first time; a rising three-note chime means Kevin is ready. Then say "%s".' % d['wake_phrase'])
             out('Settings: http://%s.local:8080 (or the Pi\'s IP address from your router).' % d['hostname'])
         except Exception as e:
-            messagebox.showerror('Bob Setup', 'Could not write the card: %s' % e)
+            messagebox.showerror('Kevin Setup', 'Could not write the card: %s' % e)
         finally:
             card_btn.state(['!disabled'])
     card_btn.configure(command=do_card)
 
     ttk.Separator(p3).pack(fill='x', pady=10)
     ttk.Label(p3, text='B. Pi already running: install over the network', font=('Segoe UI', 11, 'bold')).pack(anchor='w')
-    host = tk.StringVar(value='bob.local')
+    host = tk.StringVar(value='kevin.local')
     hrow = ttk.Frame(p3)
     hrow.pack(fill='x', pady=4)
     ttk.Label(hrow, text='Pi address').pack(side='left')
@@ -651,7 +651,7 @@ def gui():
         ans, ev = {}, threading.Event()
 
         def ask():
-            ans['ok'] = messagebox.askyesno('Bob Setup', 'First time connecting to this Pi.\nIts key is:\n\n%s\n\nConnect?' % fp)
+            ans['ok'] = messagebox.askyesno('Kevin Setup', 'First time connecting to this Pi.\nIts key is:\n\n%s\n\nConnect?' % fp)
             ev.set()
         root.after(0, ask)
         ev.wait()
@@ -683,9 +683,9 @@ def gui():
     root.mainloop()
 
 
-DEMO = {'hostname': 'bob', 'username': 'pi', 'password': 'pa"ss word1', 'wifi_ssid': 'Home "Net"',
+DEMO = {'hostname': 'kevin', 'username': 'pi', 'password': 'pa"ss word1', 'wifi_ssid': 'Home "Net"',
         'wifi_password': 'secret123', 'country': 'GB', 'gemini_api_key': 'AIza-demo', 'web_password': 'webpass',
-        'name': 'Bob', 'wake_phrase': 'hey bob', 'town': 'London', 'voice': 'Charon'}
+        'name': 'Kevin', 'wake_phrase': 'hey kevin', 'town': 'London', 'voice': 'Charon'}
 
 
 if __name__ == '__main__':

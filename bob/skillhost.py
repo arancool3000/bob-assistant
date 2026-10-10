@@ -5,9 +5,9 @@ nothing else). That gives two things a short-lived process could not:
 
   * state that lasts -- a skill's objects (a gpiozero LED, an open serial port) stay alive between calls, so an
     output you switch on stays on;
-  * isolation -- bob-skill cannot read Bob's settings or API key, change Bob's files, or stop Bob.
+  * isolation -- bob-skill cannot read Kevin's settings or API key, change Kevin's files, or stop Kevin.
 
-Bob talks to it over a Unix socket with one JSON line per request:
+Kevin talks to it over a Unix socket with one JSON line per request:
     {"cmd": "run", "name": "desk_led", "args": {"on": true}}   ->  the skill's result dict
     {"cmd": "reload"}                                           ->  restarts the host (new or changed skills)
 
@@ -105,7 +105,7 @@ def _serve_one(conn, skills_dir):
         if req.get('cmd') == 'ping':
             conn.sendall(b'{"ok": true}\n')
             return
-        if req.get('cmd') == 'i2c_scan':                 # device discovery: this user is in the i2c group, Bob is not
+        if req.get('cmd') == 'i2c_scan':                 # device discovery: this user is in the i2c group, Kevin is not
             conn.sendall((json.dumps(i2c_scan(req.get('bus', 1)), default=str) + '\n').encode())
             return
         if req.get('cmd') == 'reload':
@@ -157,7 +157,7 @@ def serve(skills_dir, sock_path=SOCK, ready=None):
         pass
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.bind(sock_path)
-    os.chmod(sock_path, 0o660)                    # bob-skill and members of its group (Bob) only
+    os.chmod(sock_path, 0o660)                    # bob-skill and members of its group (Kevin) only
     s.listen(16)
     if ready:
         ready.set()
@@ -167,7 +167,7 @@ def serve(skills_dir, sock_path=SOCK, ready=None):
 
 
 def call(req, sock_path=SOCK, timeout=TIMEOUT_S + 10):
-    """From Bob: send one request to the host and return its answer."""
+    """From Kevin: send one request to the host and return its answer."""
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.settimeout(timeout)
     try:

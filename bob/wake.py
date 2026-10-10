@@ -1,4 +1,4 @@
-"""The wake phrase, heard on the Pi itself (Vosk, offline): nothing leaves the Pi until "hey bob" is heard.
+"""The wake phrase, heard on the Pi itself (Vosk, offline): nothing leaves the Pi until "hey kevin" is heard.
 
 The recogniser is limited to the wake phrase plus "[unk]" (anything else), which makes it fast and hard to
 fool, and a word must reach a confidence bar set by the sensitivity setting (0-100 %).
@@ -45,7 +45,7 @@ def check_phrase(phrase, model_dir):
     """None if the phrase is usable, else a reason."""
     words = [w for w in str(phrase or '').lower().replace(',', ' ').split() if w]
     if not 1 <= len(words) <= 4:
-        return 'use one to four words, e.g. "hey bob"'
+        return 'use one to four words, e.g. "hey kevin"'
     if any(not w.isalpha() for w in words):
         return 'letters only'
     vocab = known_words(model_dir)
@@ -68,8 +68,8 @@ class WakeWord:
         ok = bool(phrase) and not check_phrase(phrase, model_dir)
         if ok and hasattr(self.model, 'find_word'):          # the model itself is the final word on its vocabulary
             ok = all(self.model.find_word(w) != -1 for w in phrase.split())
-        self.phrase = phrase if ok else 'hey bob'
-        self.fell_back = not ok and phrase != 'hey bob'
+        self.phrase = phrase if ok else 'hey kevin'
+        self.fell_back = not ok and phrase != 'hey kevin'
 
     def wait(self, mic, stop=None):
         """Block until the wake phrase is heard (returns True), or stop() says to give up (returns False)."""

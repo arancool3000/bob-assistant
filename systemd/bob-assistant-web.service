@@ -1,5 +1,5 @@
 [Unit]
-Description=Bob settings page (port 8080)
+Description=Kevin settings page (port 8080)
 After=network-online.target
 Wants=network-online.target
 

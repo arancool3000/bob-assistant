@@ -34,7 +34,7 @@ def test_password_hash_roundtrip():
 
 def test_config_defaults_and_save():
     cfg = config.load()
-    assert cfg['wake_phrase'] == 'hey bob'
+    assert cfg['wake_phrase'] == 'hey kevin'
     cfg['town'] = 'Leeds'
     config.save(cfg)
     assert config.load()['town'] == 'Leeds'
@@ -47,10 +47,10 @@ def test_secrets_file_is_private():
 
 
 def test_wake_decision():
-    w = [{'word': 'hey', 'conf': 0.9}, {'word': 'bob', 'conf': 0.8}]
-    assert wake.decide(w, 'hey bob', 55)
-    assert not wake.decide([{'word': 'hey', 'conf': 0.9}, {'word': 'bob', 'conf': 0.5}], 'hey bob', 55)
-    assert not wake.decide([{'word': '[unk]', 'conf': 1}], 'hey bob', 90)
+    w = [{'word': 'hey', 'conf': 0.9}, {'word': 'kevin', 'conf': 0.8}]
+    assert wake.decide(w, 'hey kevin', 55)
+    assert not wake.decide([{'word': 'hey', 'conf': 0.9}, {'word': 'kevin', 'conf': 0.5}], 'hey kevin', 55)
+    assert not wake.decide([{'word': '[unk]', 'conf': 1}], 'hey kevin', 90)
     assert wake.min_confidence(100) < wake.min_confidence(0)
 
 
@@ -132,7 +132,7 @@ def test_broken_skill_file_does_not_stop_declarations():
 
 def test_wake_phrase_checks_and_device_safety():
     assert wake.check_phrase('', '/nope') and wake.check_phrase('hey, b0b', '/nope')
-    assert wake.check_phrase('hey bob', '/nope') is None
+    assert wake.check_phrase('hey kevin', '/nope') is None
     assert not wake.decide([{'word': 'hey', 'conf': 1}], '', 55)
     assert audio.safe_device('plughw:CARD=USB,DEV=0') == 'plughw:CARD=USB,DEV=0'
     assert audio.safe_device('|rm -rf /') == 'default' and audio.safe_device('file:/tmp/x') == 'default'
@@ -160,8 +160,8 @@ def test_setup_app_ssh_validation_does_not_need_wifi():
 
 
 def test_setup_app_validation_and_files():
-    d = {'hostname': 'bob', 'username': 'pi', 'password': 'p"a ss\\w0rd', 'wifi_ssid': 'Home "Net"', 'wifi_password': "it's-secret",
-         'country': 'GB', 'gemini_api_key': 'AIza-x', 'web_password': 'webpass', 'name': 'Bob', 'wake_phrase': 'hey bob',
+    d = {'hostname': 'kevin', 'username': 'pi', 'password': 'p"a ss\\w0rd', 'wifi_ssid': 'Home "Net"', 'wifi_password': "it's-secret",
+         'country': 'GB', 'gemini_api_key': 'AIza-x', 'web_password': 'webpass', 'name': 'Kevin', 'wake_phrase': 'hey kevin',
          'town': 'London', 'voice': 'Charon'}
     assert bob_setup.validate(d) == []
     assert bob_setup.validate(dict(d, hostname='Bad Name', password='short'))
@@ -184,8 +184,8 @@ def test_setup_app_writes_old_style_card():
     root = tempfile.mkdtemp()
     open(os.path.join(root, 'cmdline.txt'), 'w').write('console=tty1 root=PARTUUID=x rootwait\n')
     open(os.path.join(root, 'config.txt'), 'w').write('')
-    d = {'hostname': 'bob', 'username': 'pi', 'password': 'password1', 'wifi_ssid': 'Home', 'wifi_password': 'secret123',
-         'gemini_api_key': 'k', 'web_password': 'webpass', 'wake_phrase': 'hey bob'}
+    d = {'hostname': 'kevin', 'username': 'pi', 'password': 'password1', 'wifi_ssid': 'Home', 'wifi_password': 'secret123',
+         'gemini_api_key': 'k', 'web_password': 'webpass', 'wake_phrase': 'hey kevin'}
     done = bob_setup.prepare_card(root, d)
     assert 'wrote firstrun.sh' in done
     assert 'systemd.run=/boot/firmware/firstrun.sh' in open(os.path.join(root, 'cmdline.txt')).read()

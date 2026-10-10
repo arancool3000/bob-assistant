@@ -1,5 +1,5 @@
 [Unit]
-Description=Bob voice assistant
+Description=Kevin voice assistant
 After=network-online.target sound.target bob-assistant-skills.service
 Wants=network-online.target bob-assistant-skills.service
 

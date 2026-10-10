@@ -26,10 +26,10 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r setup-windows/requirements.txt pyinstaller==6.11.1
-      - run: pyinstaller --onefile --windowed --uac-admin --name Bob-Setup --paths setup-windows setup-windows/bob_setup.py
+      - run: pyinstaller --onefile --windowed --uac-admin --name Kevin-Setup --paths setup-windows setup-windows/bob_setup.py
       - name: self-test the built app
         shell: pwsh
         run: |
-          $p = Start-Process dist\Bob-Setup.exe -ArgumentList '--selftest' -Wait -PassThru
+          $p = Start-Process dist\Kevin-Setup.exe -ArgumentList '--selftest' -Wait -PassThru
           Get-Content dist\selftest.txt
           if ($p.ExitCode -ne 0) { exit 1 }

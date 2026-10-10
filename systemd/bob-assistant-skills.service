@@ -1,5 +1,5 @@
 [Unit]
-Description=Bob skill host (runs the skills Bob makes, as the bob-skill user)
+Description=Kevin skill host (runs the skills Kevin makes, as the bob-skill user)
 After=network-online.target
 StartLimitIntervalSec=0
 

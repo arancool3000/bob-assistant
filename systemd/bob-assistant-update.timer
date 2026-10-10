@@ -1,5 +1,5 @@
 [Unit]
-Description=Check for Bob updates every day
+Description=Check for Kevin updates every day
 
 [Timer]
 OnBootSec=15min

@@ -1,9 +1,9 @@
 """Settings. Two files, both written by the installer (or the Windows setup app's first-boot file):
 
-  /etc/bob/config.json   everyday settings (wake phrase, voice, town, ...), readable by Bob's own user
-  /etc/bob/secrets.json  the Gemini API key and the web page password hash -- readable only by Bob (0600)
+  /etc/bob/config.json   everyday settings (wake phrase, voice, town, ...), readable by Kevin's own user
+  /etc/bob/secrets.json  the Gemini API key and the web page password hash -- readable only by Kevin (0600)
 
-Everything has a default, so a missing key never stops Bob from starting.
+Everything has a default, so a missing key never stops Kevin from starting.
 """
 import hashlib
 import json
@@ -16,8 +16,8 @@ CONFIG_FILE = os.path.join(ETC, 'config.json')
 SECRETS_FILE = os.path.join(ETC, 'secrets.json')
 
 DEFAULTS = {
-    'name': 'Bob',                       # what he calls himself
-    'wake_phrase': 'hey bob',            # said to wake him; any two short words work best
+    'name': 'Kevin',                       # what he calls himself
+    'wake_phrase': 'hey kevin',            # said to wake him; any two short words work best
     'wake_sensitivity': 55,              # 0-100: higher wakes more easily (and falsely)
     'voice': 'Charon',                   # a Gemini Live voice: Charon, Puck, Kore, Fenrir, Aoede, Leda, Orus, Zephyr
     'language': 'en-GB',
@@ -31,11 +31,11 @@ DEFAULTS = {
     'mic_device': 'default',             # ALSA device names (arecord -L / aplay -L)
     'speaker_device': 'default',
     'volume': 70,
-    'idle_seconds': 12,                  # how long Bob waits for more before going back to sleep
+    'idle_seconds': 12,                  # how long Kevin waits for more before going back to sleep
     'auto_update': True,
     'skill_approval': 'voice',            # voice: a spoken yes or the settings page; page: only Approve on the page
     'update_channel': 'stable',          # stable = tagged releases only
-    'repo': 'https://github.com/arancool3000/bob-assistant',
+    'repo': 'https://github.com/arancool3000/kevin-assistant',
     'web_port': 8080,
     'log_conversations': False,          # transcripts are never written unless this is turned on
 }

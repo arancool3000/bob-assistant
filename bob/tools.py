@@ -1,4 +1,4 @@
-"""Bob's built-in abilities: the everyday ones, before anyone has taught him anything.
+"""Kevin's built-in abilities: the everyday ones, before anyone has taught him anything.
 
 Time, weather (Open-Meteo, free, no key), timers, notes he remembers, volume, the Pi's own health, ending the
 conversation -- plus the skill-building tools in skills.py. Google Search comes built into Gemini Live.
@@ -283,7 +283,7 @@ def memory_lines(limit=30):
 
 
 def update_notice():
-    """If the updater installed a new version since Bob last said so, say so once."""
+    """If the updater installed a new version since Kevin last said so, say so once."""
     seen_path = os.path.join(config.STATE, 'announced.json')
     try:
         with open('/var/lib/bob-assistant-update/updated.json') as f:
